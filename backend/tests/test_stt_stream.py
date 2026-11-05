@@ -144,3 +144,14 @@ async def test_hard_timeout_when_no_result_at_all(stream_factory):
     await feed(st, tone(400) + silence(800))
     await wait_for(lambda: not st._order, timeout=3)
     await st.stop()
+
+
+@pytest.mark.asyncio
+async def test_level_events_for_mic_diagnostics(stream_factory):
+    rt, st, fake = stream_factory()
+    await st.start()
+    await feed(st, silence(400) + tone(400))
+    levels = [e["data"] for e in rt.hub.of("stt.level")]
+    assert len(levels) >= 3 and levels[0]["rms"] == 0 and max(l["rms"] for l in levels) > rt.s.vad_rms_threshold
+    assert levels[0]["threshold"] == rt.s.vad_rms_threshold
+    await st.stop()

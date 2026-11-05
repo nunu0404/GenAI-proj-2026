@@ -177,3 +177,20 @@ def test_loose_next_split_across_segments():
     d = RequestDetector(silence_s=2.5)
     evs, _ = feed(d, ["다음으로", "경사하강법을 설명하겠습니다."])
     assert [e.topic for e in evs if e.kind == "request"] == ["경사하강법"]
+
+
+def test_polite_dorok_forms():
+    ok = {"어, 다음 장에서는 우선 오늘 발표에 대한 목차를 설명드리도록 하겠습니다.": "목차",
+          "다음 슬라이드에서는 과적합을 설명하도록 하겠습니다.": "과적합",
+          "다음으로 정규화를 살펴보도록 하겠습니다.": "정규화",
+          "다음 장에서는 활성화 함수에 대해 말씀드리겠습니다.": "활성화 함수"}
+    for text, topic in ok.items():
+        d = RequestDetector(silence_s=2.5)
+        evs = d.feed_final("a", text, 1.0) + d.tick(5.0)
+        reqs = [e for e in evs if e.kind == "request"]
+        assert len(reqs) == 1 and topic in reqs[0].topic, text
+    for text in ["지금부터 머신러닝 기초에 대한 수업을 시작하도록 하겠습니다.", "다음 슬라이드로 넘어가도록 하겠습니다.",
+                 "다음 장을 보도록 하겠습니다."]:
+        d = RequestDetector(silence_s=2.5)
+        evs = d.feed_final("a", text, 1.0) + d.tick(5.0)
+        assert [e.kind for e in evs if e.kind != "candidate"] == [], text

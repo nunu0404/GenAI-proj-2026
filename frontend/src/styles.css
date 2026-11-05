@@ -158,6 +158,11 @@ label { display: grid; gap: 4px; font-weight: 500; }
 .preview-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
 .mic-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .vad { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); }
+.level { margin-top: 6px; }
+.level-bar { position: relative; height: 6px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+.level-fill { height: 100%; background: #9aa3b2; transition: width 120ms linear; }
+.level-fill.voiced { background: var(--ok); }
+.level-th { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--warn); }
 .vad.on { background: #e3f3ea; color: var(--ok); border-color: transparent; }
 .transcript { margin-top: 8px; max-height: 200px; overflow-y: auto; display: grid; gap: 4px; font-size: 13px; }
 .transcript p { margin: 0; }

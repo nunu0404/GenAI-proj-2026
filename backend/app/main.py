@@ -22,6 +22,9 @@ from .schemas import (ClarifyInput, ManualInput, NavigateInput, RenderMetric, Se
 from .stt_stream import AudioFormatError, SttStream, validate_mic_start
 
 log = logging.getLogger("nextslide")
+if not logging.getLogger().handlers:  # uvicorn 아래에서도 앱 로그(INFO)가 보이도록
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s %(message)s")
+logging.getLogger("nextslide").setLevel(logging.INFO)
 FNAME_RE = re.compile(r"^[A-Za-z0-9_\-]+\.(png|jpg|webp)$")
 SID_RE = re.compile(r"^ses_[0-9a-f]{12}$")
 
@@ -175,6 +178,8 @@ def create_app(s: Optional[Settings] = None, text: Optional[TextProvider] = None
                     continue
                 t = data.get("type")
                 if t == "mic_start":
+                    log.info("mic_start sid=%s sample_rate=%s input_rate=%s stt=%s", sid, data.get("sample_rate"),
+                             data.get("input_rate"), s.stt_provider)
                     try:
                         validate_mic_start(data, s)
                     except AudioFormatError as e:
@@ -197,6 +202,9 @@ def create_app(s: Optional[Settings] = None, text: Optional[TextProvider] = None
                         my_stream = None
                         rt.stt = None
                 elif t == "mic_stop":
+                    log.info("mic_stop sid=%s frames=%s segments=%s discarded_short=%s", sid,
+                             getattr(my_stream, "frames_in", None), getattr(my_stream, "committed", None),
+                             getattr(my_stream, "discarded_short", None))
                     if my_stream is not None:
                         await my_stream.stop()
                         if rt.stt is my_stream:

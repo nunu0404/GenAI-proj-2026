@@ -21,6 +21,8 @@ export interface SessionState {
   stt: { state: string; message: string };
   vadSpeaking: boolean;
   detectorPending: boolean;
+  /** 서버가 받은 마이크 입력 음량 (200ms 최대 RMS, int16) */
+  level: { rms: number; threshold: number; at: number; recentMax: number[] };
 }
 
 const initial: SessionState = {
@@ -36,6 +38,7 @@ const initial: SessionState = {
   stt: { state: "stopped", message: "" },
   vadSpeaking: false,
   detectorPending: false,
+  level: { rms: 0, threshold: 0, at: 0, recentMax: [] },
 };
 
 type Msg = { type: string; session_id: string; job_id?: string; data: any };
@@ -105,6 +108,11 @@ function reducer(s: SessionState, m: Msg | { type: "local.notice"; kind: string;
       return { ...s, notices: addNotice(s, d.level === "error" ? "stt_error" : "stt", d.message) };
     case "stt.vad":
       return { ...s, vadSpeaking: !!d.speaking };
+    case "stt.level":
+      return {
+        ...s,
+        level: { rms: d.rms, threshold: d.threshold, at: Date.now(), recentMax: [...s.level.recentMax, d.rms].slice(-25) },
+      };
     default:
       return s;
   }

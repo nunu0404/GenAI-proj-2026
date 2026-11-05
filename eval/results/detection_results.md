@@ -1,9 +1,9 @@
 # 요청 감지 평가 결과
 
-- 실행 시각: 2026-11-05T14:53:48
-- 표본 수: 53 (규칙 기반 감지기, API 호출 없음, 결정적)
+- 실행 시각: 2026-11-05T15:07:26
+- 표본 수: 57 (규칙 기반 감지기, API 호출 없음, 결정적)
 - 시뮬레이션 조건: 확정 STT 구간 0.8초 간격 입력 후 침묵 2.6초 (REQUEST_SILENCE_MS=2500)
-- 전체 정확도(3분류: request / needs_input / none): **92.5%** (49/53)
+- 전체 정확도(3분류: request / needs_input / none): **93.0%** (53/57)
 - 잘못 생성(정답이 request 가 아닌데 생성): 1건 · 놓친 생성(정답 request 인데 미생성): 0건
 
 ## 범주별
@@ -17,16 +17,17 @@
 | quoted | 4 | 3/4 |
 | ambiguous | 5 | 4/5 |
 | truncated | 4 | 4/4 |
-| added | 6 | 6/6 |
-| added_negative | 7 | 7/7 |
+| added | 7 | 7/7 |
+| added_negative | 9 | 9/9 |
+| real_user | 1 | 1/1 |
 
 ## 혼동 행렬 (행=정답, 열=예측)
 
 | 정답 \ 예측 | request | needs_input | none | 기타 |
 |---|---|---|---|---|
-| request | 21 | 0 | 0 | 0 |
+| request | 23 | 0 | 0 | 0 |
 | needs_input | 1 | 7 | 0 | 0 |
-| none | 0 | 3 | 21 | 0 |
+| none | 0 | 3 | 23 | 0 |
 
 ## 사례별
 
@@ -85,6 +86,10 @@
 | added-n05 | added_negative | 여러분이 경사하강법 슬라이드 부탁해요 라고 말하면 만들어집니다. | none | none |  | ✅ |
 | added-n06 | added_negative | 다음으로 경사하강법은 설명하지 않겠습니다. | none | none |  | ✅ |
 | added-n07 | added_negative | 그럼 경사하강법을 한번 봅시다. | none | none |  | ✅ |
+| real-01 | real_user | 네, 안녕하십니까. 지금부터 머신러닝 기초에 대한 수업을 시작하도록 하겠습니다. 어, 다음 장에서는 우선 오늘 발표에 대한 목차를 설명드리도록 하겠습니다. | request | request | 우선 오늘 발표에 대한 목차 | ✅ |
+| dorok-01 | added | 다음 슬라이드에서는 과적합을 설명하도록 하겠습니다. | request | request | 과적합 | ✅ |
+| dorok-n01 | added_negative | 다음 장을 보도록 하겠습니다. | none | none |  | ✅ |
+| dorok-n02 | added_negative | 다음 슬라이드로 넘어가도록 하겠습니다. | none | none |  | ✅ |
 
 ## 오답 분석
 

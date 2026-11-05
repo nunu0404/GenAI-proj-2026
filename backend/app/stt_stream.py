@@ -80,6 +80,11 @@ class SttStream:
         self.frames_in = 0
         self.discarded_short = 0
         self.committed = 0
+        # 진단: 입력 음량(브라우저 표시용 200ms 최대값)과 주기 로그(5초)
+        self._lvl_peak = 0.0
+        self._lvl_frames = 0
+        self._stat_t = 0.0
+        self._stat = {"frames": 0, "voiced": 0, "peak": 0.0}
         # commit 순서 보정
         self._order: collections.deque[_Pending] = collections.deque()
         self._by_seg: dict[str, _Pending] = {}
@@ -237,6 +242,7 @@ class SttStream:
         self.frames_in += 1
         x = np.frombuffer(frame, dtype="<i2").astype(np.float32)
         rms = float(np.sqrt(np.mean(x * x))) if x.size else 0.0
+        await self._diag(rms, t)
         voiced = rms >= self.s.vad_rms_threshold
 
         if self._state == "idle":
@@ -279,6 +285,25 @@ class SttStream:
         await self.p.send_audio(frame)
         if self._silence_ms >= self.s.vad_silence_ms or self._seg_ms >= self.s.vad_max_segment_ms:
             await self._commit()
+
+    async def _diag(self, rms: float, t: float) -> None:
+        voiced = rms >= self.s.vad_rms_threshold
+        self._stat["frames"] += 1
+        self._stat["voiced"] += int(voiced)
+        self._stat["peak"] = max(self._stat["peak"], rms)
+        self._lvl_peak = max(self._lvl_peak, rms)
+        self._lvl_frames += 1
+        if self._lvl_frames * FRAME_MS >= 200:
+            await self.rt.hub.broadcast(self.rt.sid, "stt.level", {
+                "rms": round(self._lvl_peak), "threshold": self.s.vad_rms_threshold})
+            self._lvl_peak, self._lvl_frames = 0.0, 0
+        if t - self._stat_t >= 5.0:
+            st = self._stat
+            log.info("mic stats sid=%s audio=%.1fs voiced=%.1fs peak_rms=%d threshold=%d segments=%d discarded_short=%d",
+                     self.rt.sid, st["frames"] * FRAME_MS / 1000, st["voiced"] * FRAME_MS / 1000, st["peak"],
+                     self.s.vad_rms_threshold, self.committed, self.discarded_short)
+            self._stat_t = t
+            self._stat = {"frames": 0, "voiced": 0, "peak": 0.0}
 
     async def _commit(self) -> None:
         if self._state != "speech" or self._local_seg is None:

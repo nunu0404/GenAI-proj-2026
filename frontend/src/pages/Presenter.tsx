@@ -414,6 +414,7 @@ export function Presenter({ sid }: { sid: string }) {
               </span>
               <span className="muted small">{state.stt.message}</span>
             </div>
+            {micOn && <LevelMeter level={state.level} sttReady={state.stt.state === "ready"} />}
             {micErr && <div className="err">{micErr}</div>}
             <div className="transcript" aria-live="polite">
               {state.utterances.slice(-10).map((u) => (
@@ -504,6 +505,29 @@ export function Presenter({ sid }: { sid: string }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** 서버가 실제로 받은 입력 음량. 기준선(VAD 임계값)을 넘어야 음성 구간으로 판정된다. */
+function LevelMeter({ level, sttReady }: { level: { rms: number; threshold: number; at: number; recentMax: number[] }; sttReady: boolean }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = window.setInterval(() => tick((x) => x + 1), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  const scale = Math.max(level.threshold * 4, 1);
+  const pct = Math.min(100, (level.rms / scale) * 100);
+  const stale = Date.now() - level.at > 3000;
+  const quiet = !stale && level.recentMax.length >= 20 && Math.max(...level.recentMax) < level.threshold;
+  return (
+    <div className="level">
+      <div className="level-bar" title={`입력 음량 ${level.rms} / 기준 ${level.threshold}`}>
+        <div className={`level-fill ${level.rms >= level.threshold ? "voiced" : ""}`} style={{ width: `${stale ? 0 : pct}%` }} />
+        <div className="level-th" style={{ left: "25%" }} />
+      </div>
+      {sttReady && stale && <div className="warn-text">서버로 마이크 오디오가 도착하지 않고 있습니다. 마이크 장치·권한을 확인하거나 마이크를 다시 시작해 주세요.</div>}
+      {quiet && <div className="warn-text">입력 음량이 음성 판정 기준보다 작습니다. 마이크에 가까이 말하거나 입력 장치·음량을 확인해 주세요.</div>}
     </div>
   );
 }
