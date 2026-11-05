@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { Audience } from "./pages/Audience";
 import { Home } from "./pages/Home";
 import { Presenter } from "./pages/Presenter";
+import "katex/dist/katex.min.css";
 import "./styles.css";
 
 function parse(hash: string): { page: "home" } | { page: "presenter" | "audience"; sid: string } {

@@ -113,6 +113,22 @@ label { display: grid; gap: 4px; font-weight: 500; }
 .img-placeholder.quiet { background: var(--s-soft); }
 .shimmer { background: linear-gradient(100deg, #e8efee 30%, #f6f9f8 50%, #e8efee 70%); background-size: 300% 100%; animation: shimmer 1.6s linear infinite; }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+/* 수식형: 왼쪽 핵심 문장, 오른쪽 수식 패널 */
+.slide-tbe { display: grid; grid-template-columns: 42% 1fr; grid-template-rows: auto minmax(0, 1fr);
+  column-gap: 3cqw; row-gap: 2.4cqw; padding: 3.8cqw 4.4cqw 4cqw; }
+.tbe-eqs { min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 2.4em;
+  background: var(--s-soft); border-radius: 1.2cqw; padding: 2.4em 2.6em; }
+.eq { margin: 0; }
+.eq-math { font-size: 2.6em; color: var(--s-title); overflow: hidden; }
+.eq-math .katex-display { margin: 0; }
+.eq-raw { font-size: 1.6em; white-space: pre-wrap; color: #8c2340; }
+.eq-cap { margin-top: 0.6em; font-size: 1.6em; color: #4a5568; text-align: center; }
+/* 텍스트형: 넓고 크게 */
+.slide-tb { display: grid; grid-template-rows: auto minmax(0, 1fr); row-gap: 3cqw; padding: 3.8cqw 6cqw 4.5cqw 4.4cqw; }
+.slide-tb .tbi-text { align-items: flex-start; padding: 2.5cqw 0 0 2.3cqw; }
+.slide-tb .tbi-bullets { gap: 1.1em; }
+.slide-tb .tbi-bullets li { font-size: 3em; line-height: 1.4; padding-bottom: 0.9em; border-bottom: 1px solid #e6e2d6; }
+.slide-tb .tbi-bullets li:last-child { border-bottom: none; }
 .slide-hints { position: absolute; right: 1cqw; bottom: 1cqw; display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; font-size: 12px; }
 
 /* ========== 발표자 ========== */
@@ -189,6 +205,11 @@ label { display: grid; gap: 4px; font-weight: 500; }
 .modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: grid; place-items: center; z-index: 50; padding: 16px; }
 .modal { background: var(--surface); border-radius: 12px; padding: 16px; width: min(520px, 100%); display: grid; gap: 10px; }
 .modal h3 { margin: 0; }
+.eq-edit { display: grid; gap: 8px; }
+.eq-edit-row { display: grid; gap: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
+.eq-preview { background: var(--s-soft); border-radius: 8px; padding: 8px; color: var(--s-title); }
+.eq-preview .eq-math { font-size: 1.2em; }
+.eq-preview .eq-cap { font-size: 0.9em; }
 
 /* 전체 화면 발표 모드 */
 .present { position: fixed; inset: 0; background: #000; z-index: 40; display: grid; place-items: center; }

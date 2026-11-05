@@ -22,7 +22,7 @@ from .metrics import estimate_cost
 from .planner import PlanError, PlanResult, compose_image_prompt, plan_slide
 from .providers.base import ImageProvider, ImageResult, ProviderError, TextProvider, Usage
 from .providers.image_validation import EXT
-from .schemas import JobStatus, SlideEdit
+from .schemas import LAYOUT_BY_VISUAL, JobStatus, SlideEdit
 
 log = logging.getLogger("nextslide.runtime")
 
@@ -376,13 +376,29 @@ class SessionRuntime:
                                    clarification_reason=spec.clarification_reason or "모델이 보완을 요청했습니다")
                 await self.emit_job(jid)
                 return
+            layout = LAYOUT_BY_VISUAL[spec.visual_type]
+            needs_image = spec.visual_type == "illustration"
             slide = self.db.insert_slide(
-                self.sid, layout="title_bullets_image", status=JobStatus.text_ready.value, title=spec.title,
-                bullets=spec.bullets, job_id=jid, image_alt=spec.visual_intent,
-                image_prompt=compose_image_prompt(spec.image_prompt), text_model=self.text.model,
-                speaker_notes=spec.speaker_notes, precision_warning=spec.precision_warning)
-            self.db.update_job(jid, slide_id=slide["id"], status=JobStatus.text_ready.value)
-            self.db.merge_job_metrics(jid, confirm_to_text_ready_ms=round((time.monotonic() - tm["confirmed"]) * 1000, 1))
+                self.sid, layout=layout,
+                status=JobStatus.text_ready.value if needs_image else JobStatus.ready.value,
+                title=spec.title, bullets=spec.bullets, job_id=jid, image_alt=spec.visual_intent,
+                image_prompt=compose_image_prompt(spec.image_prompt) if needs_image else None,
+                text_model=self.text.model, speaker_notes=spec.speaker_notes,
+                precision_warning=spec.precision_warning, equations=[e.model_dump() for e in spec.equations])
+            text_ms = round((time.monotonic() - tm["confirmed"]) * 1000, 1)
+            self.db.update_job(jid, slide_id=slide["id"],
+                               status=JobStatus.text_ready.value if needs_image else JobStatus.ready.value)
+            self.db.merge_job_metrics(jid, confirm_to_text_ready_ms=text_ms, visual_type=spec.visual_type)
+            if not needs_image:
+                # 수식·텍스트 장: 이미지 생성 없이 바로 완성
+                m_extra: dict[str, Any] = {"confirm_to_ready_ms": text_ms, "image_skipped": True}
+                if "speech_end" in tm:
+                    m_extra["vad_speech_end_to_ready_ms"] = round((time.monotonic() - tm["speech_end"]) * 1000, 1)
+                self.db.merge_job_metrics(jid, **m_extra)
+                await self.emit_slide(slide["id"])
+                await self.emit_job(jid)
+                await self._maybe_auto_advance(slide["id"])
+                return
             await self.emit_slide(slide["id"])
             await self.emit_job(jid)
 
@@ -551,6 +567,8 @@ class SessionRuntime:
             fields["title"] = edit.title
         if edit.bullets is not None:
             fields["bullets"] = edit.bullets
+        if edit.equations is not None:
+            fields["equations"] = [e.model_dump() for e in edit.equations]
         if fields:
             self.db.update_slide(slide_id, **fields)
             await self.emit_slide(slide_id)

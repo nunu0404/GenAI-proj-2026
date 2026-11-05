@@ -258,3 +258,46 @@ async def test_edit_and_navigation(make_rt):
     assert r["current_slide_id"] == sl["id"]
     r = await rt.navigate(direction="prev")
     assert r["current_slide_id"] == rt.db.list_slides(rt.sid)[0]["id"]
+
+
+@pytest.mark.asyncio
+async def test_equation_and_text_slides_skip_image(make_rt):
+    img = MockImageProvider(delay_ms=0)
+    rt = make_rt(image=img)
+    await rt.manual_input("다음 슬라이드에서는 경사하강법 갱신 규칙을 수식으로 보여주세요", "force")
+    await wait_for(lambda: latest_job(rt)["status"] == "ready")
+    eq = rt.db.list_slides(rt.sid)[-1]
+    assert eq["layout"] == "title_bullets_equation" and eq["status"] == "ready" and not eq["image_path"]
+    assert eq["equations"] and "\\theta" in eq["equations"][0]["latex"]
+    m = latest_job(rt)["metrics"]
+    assert m["visual_type"] == "equation" and m["image_skipped"] and m["confirm_to_ready_ms"] == m["confirm_to_text_ready_ms"]
+    await rt.manual_input("다음 슬라이드에서는 오늘 수업의 목차를 정리하겠습니다", "force")
+    await wait_for(lambda: latest_job(rt)["status"] == "ready")
+    tx = rt.db.list_slides(rt.sid)[-1]
+    assert tx["layout"] == "title_bullets" and tx["equations"] == []
+    assert img.calls == 0  # 이미지 API 호출 없음
+    from app.hub import serialize_slide
+    assert serialize_slide(eq, audience=True)["equations"] == eq["equations"]
+    # 수식 편집
+    from app.schemas import SlideEdit
+    await rt.edit_slide(eq["id"], SlideEdit(equations=[{"latex": "y = wx + b", "caption": "선형 모델"}]))
+    assert rt.db.get_slide(eq["id"])["equations"] == [{"latex": "y = wx + b", "caption": "선형 모델"}]
+    with pytest.raises(ValueError):
+        SlideEdit(equations=[{"latex": "\\href{http://x}{y}", "caption": ""}])
+
+
+def test_old_database_is_migrated(tmp_path):
+    import sqlite3
+    from app.db import SCHEMA
+    p = tmp_path / "old.sqlite3"
+    con = sqlite3.connect(p)
+    con.executescript(SCHEMA.replace("  equations TEXT NOT NULL DEFAULT '[]',\n", ""))
+    con.execute("INSERT INTO sessions(id,title,audience,created_at,updated_at) VALUES('ses_000000000001','t','a',0,0)")
+    con.execute("INSERT INTO slides(id,session_id,position,layout,status,created_at,updated_at) "
+                "VALUES('sld_1','ses_000000000001',0,'cover','ready',0,0)")
+    con.commit()
+    con.close()
+    db = Database(p)
+    s = db.list_slides("ses_000000000001")
+    assert s[0]["equations"] == [] and s[0]["layout"] == "cover"
+    db.close()

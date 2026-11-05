@@ -8,7 +8,12 @@ export type JobStatus =
   | "cancelled"
   | "needs_input";
 
-export type Layout = "cover" | "title_bullets_image";
+export type Layout = "cover" | "title_bullets_image" | "title_bullets_equation" | "title_bullets";
+
+export interface Equation {
+  latex: string;
+  caption: string;
+}
 
 export interface Slide {
   id: string;
@@ -20,6 +25,7 @@ export interface Slide {
   bullets: string[];
   image_url: string | null;
   image_alt: string;
+  equations: Equation[];
   // presenter 전용
   job_id?: string | null;
   image_prompt?: string | null;
@@ -122,7 +128,7 @@ export const api = {
   retry: (sid: string, jid: string) => req("POST", `/api/sessions/${sid}/jobs/${jid}/retry`),
   clarify: (sid: string, jid: string, text: string) => req("POST", `/api/sessions/${sid}/jobs/${jid}/clarify`, { text }),
   dismiss: (sid: string, jid: string) => req("POST", `/api/sessions/${sid}/jobs/${jid}/dismiss`),
-  editSlide: (sid: string, slideId: string, body: { title?: string; bullets?: string[] }) =>
+  editSlide: (sid: string, slideId: string, body: { title?: string; bullets?: string[]; equations?: Equation[] }) =>
     req("PATCH", `/api/sessions/${sid}/slides/${slideId}`, body),
   finalizeWithoutImage: (sid: string, slideId: string) =>
     req("POST", `/api/sessions/${sid}/slides/${slideId}/finalize-without-image`),

@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { Slide } from "../api";
+import katex from "katex";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { Equation, Slide } from "../api";
 import { STATUS_LABEL } from "../api";
 
 interface Props {
@@ -19,13 +20,14 @@ interface Props {
 export function SlideView({ slide, presenterHints, onOverflow, onRendered, className }: Props) {
   const textRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
+  const eqRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [overflow, setOverflow] = useState(false);
 
   // 텍스트가 넘치면 글자 크기를 단계적으로 줄이고(최소 80%), 그래도 넘치면 경고 표시
-  useEffect(() => setScale(1), [slide.id, slide.title, slide.bullets.join("\n")]);
+  useEffect(() => setScale(1), [slide.id, slide.title, slide.bullets.join("\n"), JSON.stringify(slide.equations ?? [])]);
   useLayoutEffect(() => {
-    const els = [textRef.current, titleRef.current].filter(Boolean) as HTMLElement[];
+    const els = [textRef.current, titleRef.current, eqRef.current].filter(Boolean) as HTMLElement[];
     if (!els.length) return;
     const over = els.some((el) => el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1);
     if (over && scale > 0.8) {
@@ -34,7 +36,7 @@ export function SlideView({ slide, presenterHints, onOverflow, onRendered, class
     }
     setOverflow(over);
     onOverflow?.(over);
-  }, [scale, slide.title, slide.bullets, onOverflow]);
+  }, [scale, slide.title, slide.bullets, slide.equations, slide.layout, onOverflow]);
 
   const hasImage = !!slide.image_url;
   useEffect(() => {
@@ -62,6 +64,43 @@ export function SlideView({ slide, presenterHints, onOverflow, onRendered, class
   }
 
   const pending = slide.status !== "ready";
+
+  if (slide.layout === "title_bullets" || slide.layout === "title_bullets_equation") {
+    const isEq = slide.layout === "title_bullets_equation";
+    const hasEqError = isEq && (slide.equations ?? []).some((e) => latexError(e.latex));
+    return (
+      <div className={`slide ${isEq ? "slide-tbe" : "slide-tb"} ${className ?? ""}`} style={style}>
+        <div className="tbi-head" ref={titleRef}>
+          <h2 className="tbi-title">{slide.title}</h2>
+        </div>
+        <div className="tbi-text" ref={textRef}>
+          <ul className="tbi-bullets">
+            {slide.bullets.map((b, i) => (
+              <li key={i}>
+                <MathText text={b} />
+              </li>
+            ))}
+          </ul>
+        </div>
+        {isEq && (
+          <div className="tbe-eqs" ref={eqRef}>
+            {(slide.equations ?? []).map((e, i) => (
+              <EquationBlock key={i} eq={e} />
+            ))}
+          </div>
+        )}
+        {presenterHints && (pending || overflow || slide.is_mock || hasEqError) && (
+          <div className="slide-hints">
+            {pending && <span className={`chip st-${slide.status}`}>{STATUS_LABEL[slide.status]}</span>}
+            {overflow && <span className="chip warn">텍스트 넘침</span>}
+            {hasEqError && <span className="chip warn">수식 오류</span>}
+            {slide.is_mock && <span className="chip mock">MOCK</span>}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={`slide slide-tbi ${className ?? ""}`} style={style}>
       <div className="tbi-head" ref={titleRef}>
@@ -70,7 +109,9 @@ export function SlideView({ slide, presenterHints, onOverflow, onRendered, class
       <div className="tbi-text" ref={textRef}>
         <ul className="tbi-bullets">
           {slide.bullets.map((b, i) => (
-            <li key={i}>{b}</li>
+            <li key={i}>
+              <MathText text={b} />
+            </li>
           ))}
         </ul>
       </div>
@@ -104,6 +145,75 @@ export function SlideView({ slide, presenterHints, onOverflow, onRendered, class
         </div>
       )}
     </div>
+  );
+}
+
+const KATEX_OPTS = { displayMode: true, throwOnError: true, trust: false, strict: "ignore" as const };
+
+function latexError(latex: string): string | null {
+  try {
+    katex.renderToString(latex, KATEX_OPTS);
+    return null;
+  } catch (e) {
+    return String((e as Error).message ?? e);
+  }
+}
+
+/**
+ * LaTeX → KaTeX 렌더링 (trust=false: \href 등 외부 리소스·HTML 명령 비활성).
+ * 모델이 만든 HTML 을 실행하는 것이 아니라, LaTeX 문자열을 KaTeX 가 조판한다. 오류면 원문을 그대로 보여 준다.
+ */
+export function EquationBlock({ eq }: { eq: Equation }) {
+  const html = useMemo(() => {
+    try {
+      return katex.renderToString(eq.latex, KATEX_OPTS);
+    } catch {
+      return null;
+    }
+  }, [eq.latex]);
+  return (
+    <figure className="eq">
+      {html ? (
+        <div className="eq-math" dangerouslySetInnerHTML={{ __html: html }} />
+      ) : (
+        <code className="eq-raw">{eq.latex}</code>
+      )}
+      {eq.caption && (
+        <figcaption className="eq-cap">
+          <MathText text={eq.caption} />
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
+/** 글 속의 \( … \) 부분만 KaTeX 인라인 수식으로 렌더링하고 나머지는 일반 텍스트로 출력한다. */
+export function MathText({ text }: { text: string }) {
+  const parts = useMemo(() => {
+    const out: { math: boolean; s: string; html?: string | null }[] = [];
+    const re = /\\\((.+?)\\\)/g;
+    let last = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text))) {
+      if (m.index > last) out.push({ math: false, s: text.slice(last, m.index) });
+      let html: string | null = null;
+      try {
+        html = katex.renderToString(m[1], { ...KATEX_OPTS, displayMode: false });
+      } catch {
+        html = null;
+      }
+      out.push({ math: true, s: m[0], html });
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) out.push({ math: false, s: text.slice(last) });
+    return out;
+  }, [text]);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.math && p.html ? <span key={i} className="mt-math" dangerouslySetInnerHTML={{ __html: p.html }} /> : <span key={i}>{p.s}</span>,
+      )}
+    </>
   );
 }
 

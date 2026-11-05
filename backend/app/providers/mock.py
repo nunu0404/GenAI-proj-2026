@@ -43,11 +43,22 @@ class MockTextProvider:
         if ctx.strip() and ctx.strip() != "(없음)":
             first = re.split(r"[.!?]\s*", ctx.strip())[0][:50]
             bullets.append(f"앞선 설명과 연결: {first}"[:68])
+        # 모의 기획: 요청 단어로 형태를 고른다 (실제 모델은 프롬프트 규칙에 따라 판단)
+        if re.search(r"수식|공식|식으로|갱신\s*규칙", req):
+            vtype = "equation"
+        elif re.search(r"목차|요약|정리|흐름", req):
+            vtype = "text"
+        else:
+            vtype = "illustration"
+        equations = [{"latex": r"\theta_{t+1} = \theta_t - \eta \nabla_{\theta} L(\theta_t)",
+                      "caption": "[MOCK] θ: 파라미터, η: 학습률, ∇L: 손실의 기울기"}] if vtype == "equation" else []
         spec = {
             "title": title,
             "bullets": bullets,
-            "visual_intent": f"{topic} 을(를) 일상적 상황으로 보여주는 그림",
-            "image_prompt": f"An educational illustration explaining: {topic}",
+            "visual_type": vtype,
+            "equations": equations,
+            "visual_intent": f"{topic} 을(를) 일상적 상황으로 보여주는 그림" if vtype == "illustration" else "",
+            "image_prompt": f"An educational illustration explaining: {topic}" if vtype == "illustration" else "",
             "speaker_notes": "[MOCK] 모의 생성 결과입니다. 실제 LLM 출력이 아닙니다.",
             "needs_clarification": False,
             "clarification_reason": None,

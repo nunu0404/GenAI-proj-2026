@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, STATUS_LABEL, type Job, type Slide } from "../api";
+import { api, STATUS_LABEL, type Equation, type Job, type Slide } from "../api";
 import { MicError, startMic, type MicHandle } from "../audio/mic";
-import { SlideFrame, SlideView } from "../components/SlideView";
+import { EquationBlock, SlideFrame, SlideView } from "../components/SlideView";
 import { isTypingTarget } from "../keys";
 import { useSessionSocket } from "../useSessionSocket";
 
@@ -604,10 +604,17 @@ function JobCard(props: {
 function EditDialog({ sid, slide, onClose }: { sid: string; slide: Slide; onClose: () => void }) {
   const [title, setTitle] = useState(slide.title);
   const [bullets, setBullets] = useState(slide.bullets.join("\n"));
+  const isEq = slide.layout === "title_bullets_equation";
+  const [eqs, setEqs] = useState<Equation[]>(slide.equations?.length ? slide.equations : [{ latex: "", caption: "" }]);
   const [err, setErr] = useState<string | null>(null);
+  const setEq = (i: number, patch: Partial<Equation>) => setEqs((list) => list.map((e, k) => (k === i ? { ...e, ...patch } : e)));
   const save = async () => {
     try {
-      await api.editSlide(sid, slide.id, { title, bullets: bullets.split("\n").map((b) => b.trim()).filter(Boolean) });
+      await api.editSlide(sid, slide.id, {
+        title,
+        bullets: bullets.split("\n").map((b) => b.trim()).filter(Boolean),
+        ...(isEq ? { equations: eqs.filter((e) => e.latex.trim()) } : {}),
+      });
       onClose();
     } catch (e) {
       setErr(String((e as Error).message));
@@ -625,6 +632,27 @@ function EditDialog({ sid, slide, onClose }: { sid: string; slide: Slide; onClos
           핵심 문장 (한 줄에 하나, 최대 3개, 각 70자)
           <textarea rows={4} value={bullets} onChange={(e) => setBullets(e.target.value)} />
         </label>
+        {isEq && (
+          <div className="eq-edit">
+            <div className="muted small">수식 (LaTeX, $ 없이 · 최대 3개) — 아래 미리보기로 확인하세요</div>
+            {eqs.map((e, i) => (
+              <div key={i} className="eq-edit-row">
+                <input value={e.latex} placeholder="예: \theta_{t+1} = \theta_t - \eta \nabla L(\theta_t)" onChange={(ev) => setEq(i, { latex: ev.target.value })} />
+                <input value={e.caption} placeholder="기호 설명 (80자 이하)" maxLength={80} onChange={(ev) => setEq(i, { caption: ev.target.value })} />
+                {e.latex.trim() && (
+                  <div className="eq-preview">
+                    <EquationBlock eq={e} />
+                  </div>
+                )}
+              </div>
+            ))}
+            {eqs.length < 3 && (
+              <button className="ghost" onClick={() => setEqs((l) => [...l, { latex: "", caption: "" }])}>
+                + 수식 추가
+              </button>
+            )}
+          </div>
+        )}
         {err && <div className="err">{err}</div>}
         <div className="btn-row">
           <button className="ghost" onClick={onClose}>

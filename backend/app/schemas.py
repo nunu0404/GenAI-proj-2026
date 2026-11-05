@@ -22,7 +22,46 @@ class JobStatus(str, Enum):
 ACTIVE_JOB_STATUSES = {JobStatus.queued, JobStatus.planning, JobStatus.text_ready, JobStatus.generating_image}
 TERMINAL_JOB_STATUSES = {JobStatus.ready, JobStatus.failed, JobStatus.cancelled}
 
-SlideLayout = Literal["cover", "title_bullets_image"]
+SlideLayout = Literal["cover", "title_bullets_image", "title_bullets_equation", "title_bullets"]
+VisualType = Literal["illustration", "equation", "text"]
+LAYOUT_BY_VISUAL = {"illustration": "title_bullets_image", "equation": "title_bullets_equation", "text": "title_bullets"}
+EQUATIONS_MAX = 3
+LATEX_MAX = 300
+EQ_CAPTION_MAX = 80
+# KaTeX 는 trust=false 로 렌더링하지만, 링크·외부 리소스 명령은 저장 단계에서도 거부한다
+_LATEX_FORBIDDEN = ("\\href", "\\url", "\\includegraphics", "\\htmlClass", "\\htmlId", "\\htmlStyle", "\\htmlData")
+
+
+def validate_latex(latex: str) -> str:
+    latex = (latex or "").strip().strip("$").strip()
+    if not (1 <= len(latex) <= LATEX_MAX):
+        raise ValueError(f"수식(LaTeX)은 1~{LATEX_MAX}자여야 합니다")
+    if any(cmd in latex for cmd in _LATEX_FORBIDDEN):
+        raise ValueError("수식에 허용되지 않는 명령이 있습니다")
+    depth = 0
+    for ch in latex.replace("\\{", "").replace("\\}", ""):
+        depth += ch == "{"
+        depth -= ch == "}"
+        if depth < 0:
+            break
+    if depth != 0:
+        raise ValueError("수식의 중괄호 짝이 맞지 않습니다")
+    return latex
+
+
+class EquationItem(BaseModel):
+    latex: str
+    caption: str = ""
+
+    @model_validator(mode="after")
+    def _check(self) -> "EquationItem":
+        self.latex = validate_latex(self.latex)
+        self.caption = (self.caption or "").strip()
+        if any(cmd in self.caption for cmd in _LATEX_FORBIDDEN):
+            raise ValueError("수식 설명에 허용되지 않는 명령이 있습니다")
+        if len(self.caption) > EQ_CAPTION_MAX:
+            raise ValueError(f"수식 설명은 {EQ_CAPTION_MAX}자 이하여야 합니다")
+        return self
 
 # 슬라이드 텍스트 길이 상한 (16:9 템플릿에서 넘치지 않도록 템플릿과 함께 정한 값)
 TITLE_MAX = 40
@@ -35,6 +74,8 @@ class SlideSpec(BaseModel):
 
     title: str = ""
     bullets: list[str] = Field(default_factory=list)
+    visual_type: VisualType = "illustration"
+    equations: list[EquationItem] = Field(default_factory=list)
     visual_intent: str = ""
     image_prompt: str = ""
     speaker_notes: str = ""
@@ -65,12 +106,24 @@ class SlideSpec(BaseModel):
         if not (BULLETS_MIN <= len(self.bullets) <= BULLETS_MAX):
             raise ValueError(f"bullets 는 {BULLETS_MIN}~{BULLETS_MAX}개여야 합니다 (현재 {len(self.bullets)})")
         for i, b in enumerate(self.bullets):
+            if any(cmd in b for cmd in _LATEX_FORBIDDEN):
+                raise ValueError(f"bullets[{i}] 에 허용되지 않는 명령이 있습니다")
             if not (1 <= len(b) <= BULLET_MAX):
                 raise ValueError(f"bullets[{i}] 길이는 1~{BULLET_MAX}자여야 합니다 (현재 {len(b)})")
-        if not (1 <= len(self.visual_intent) <= 300):
-            raise ValueError("visual_intent 길이는 1~300자여야 합니다")
-        if not (10 <= len(self.image_prompt) <= 1200):
-            raise ValueError("image_prompt 길이는 10~1200자여야 합니다")
+        if len(self.visual_intent) > 300:
+            raise ValueError("visual_intent 는 300자 이하여야 합니다")
+        if self.visual_type == "illustration":
+            if not (1 <= len(self.visual_intent) <= 300):
+                raise ValueError("그림형(illustration)은 visual_intent 가 필요합니다")
+            if not (10 <= len(self.image_prompt) <= 1200):
+                raise ValueError("그림형(illustration)은 image_prompt 가 10~1200자여야 합니다")
+        elif self.visual_type == "equation":
+            if not (1 <= len(self.equations) <= EQUATIONS_MAX):
+                raise ValueError(f"수식형(equation)은 equations 가 1~{EQUATIONS_MAX}개여야 합니다 (현재 {len(self.equations)})")
+        if self.visual_type != "equation":
+            self.equations = []
+        if self.visual_type != "illustration":
+            self.image_prompt = ""
         if len(self.speaker_notes) > 800:
             raise ValueError("speaker_notes 는 800자 이하여야 합니다")
         return self
@@ -82,6 +135,11 @@ SLIDE_SPEC_JSON_SCHEMA: dict = {
     "properties": {
         "title": {"type": "string"},
         "bullets": {"type": "array", "items": {"type": "string"}},
+        "visual_type": {"type": "string", "enum": ["illustration", "equation", "text"]},
+        "equations": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"latex": {"type": "string"}, "caption": {"type": "string"}},
+            "required": ["latex", "caption"], "additionalProperties": False}},
         "visual_intent": {"type": "string"},
         "image_prompt": {"type": "string"},
         "speaker_notes": {"type": "string"},
@@ -90,7 +148,7 @@ SLIDE_SPEC_JSON_SCHEMA: dict = {
         "precision_warning": {"type": ["string", "null"]},
     },
     "required": [
-        "title", "bullets", "visual_intent", "image_prompt", "speaker_notes",
+        "title", "bullets", "visual_type", "equations", "visual_intent", "image_prompt", "speaker_notes",
         "needs_clarification", "clarification_reason", "precision_warning",
     ],
     "additionalProperties": False,
@@ -100,6 +158,7 @@ SLIDE_SPEC_JSON_SCHEMA: dict = {
 class SlideEdit(BaseModel):
     title: Optional[str] = None
     bullets: Optional[list[str]] = None
+    equations: Optional[list[EquationItem]] = None
 
     @model_validator(mode="after")
     def _check(self) -> "SlideEdit":
@@ -114,6 +173,8 @@ class SlideEdit(BaseModel):
             for b in self.bullets:
                 if len(b) > BULLET_MAX:
                     raise ValueError(f"핵심 문장은 {BULLET_MAX}자 이하여야 합니다")
+        if self.equations is not None and len(self.equations) > EQUATIONS_MAX:
+            raise ValueError(f"수식은 최대 {EQUATIONS_MAX}개입니다")
         return self
 
 
