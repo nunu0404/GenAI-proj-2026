@@ -154,3 +154,30 @@ API 사용료를 줄일 수 있는 대안 (아직 구현하지 않음):
   - 정확도, 구간 분할, 지연을 이 앱이 제어하거나 검증하기 어렵습니다.
   - 브라우저마다 지원이 다릅니다.
 - **이미지**: 구독 경로가 없으므로 API 비용이 들거나 다른 제공자를 써야 합니다. 현재 기본값(quality low)이 가장 저렴한 설정입니다.
+
+## 8. 사용자 요금제 기준 분석 (Claude 과학자용 Team · ChatGPT Plus · Google AI Pro, 2026-11-05)
+
+| 요금제 | 이 앱에서 쓸 수 있는 것 | 조건과 주의 |
+|---|---|---|
+| Claude Team (과학자 할인) | **월간 API 크레딧 대상**: Standard 좌석 $20, Premium 좌석 $100, 팀 합산 최대 $500 | Team의 **Primary Owner 또는 Owner**만 받을 수 있습니다. Console 조직 1개에만 연결되며, 팀 전체가 같은 잔액을 씁니다. 크레딧이 떨어지면 요금이 청구되지 않고 요청이 멈춥니다. 팀(연구실 등) 공용 크레딧이라면 소유자의 허락이 필요합니다. |
+| ChatGPT Plus | 없음 | API는 별도로 과금됩니다. 현재 구성(OpenAI 음성 인식과 이미지)은 전액 별도 비용입니다. |
+| Google AI Pro | Google Developer Program의 월간 Google Cloud 크레딧 (검색 요약 기준 $10/월. 공식 Gemini 문서 페이지에는 금액이 없어 **미확인**) | Google Cloud 프로젝트와 **Cloud Billing 활성화가 필요**합니다(선불 방식은 잔액 $0 초과 필요). 앱의 API 키 호출에 적용되는지, 크레딧 소진 후 청구되는지 멈추는지는 문서에 명확히 나와 있지 않아 **미확인**입니다. 쓰려면 예산 알림이나 상한을 먼저 설정해야 합니다. |
+
+Gemini API 가격 ([AI Studio 가격표](https://aistudio.google.com/docs/pricing), 2026-11-05):
+
+- 음성 인식 `gemini-3.5-transcribe-live`
+  - 무료 등급: 입력·출력 무료. 단, **무료 등급 콘텐츠는 Google 제품 개선에 사용**됩니다.
+  - 유료: 오디오 입력 $0.005/분 + 텍스트 출력 $0.004/분, 문서상 혼합 약 $0.009/분. OpenAI `gpt-live-transcribe` $0.017/분의 약 절반입니다. 유료 등급은 제품 개선에 사용되지 않습니다.
+- 이미지 생성: **무료 등급 없음**.
+  - `gemini-3.1-flash-lite-image`: 1K(1024x1024) 장당 $0.0336
+  - `gemini-3.1-flash-image`: 0.5K $0.045, 1K $0.067
+  - gpt-image-2 low 표 가격($0.005)보다 비쌉니다. 16:9 비율을 지원하는지는 가격표에 없어 미확인입니다.
+- 텍스트 `gemini-2.5-flash-lite`: 무료 등급 있음. 유료 $0.10/$0.40.
+
+가능한 구성 (아직 구현하지 않음, 결정 필요):
+
+| 구성 | 음성 인식 | 기획 | 이미지 | 별도 결제 | 해야 할 일 |
+|---|---|---|---|---|---|
+| A. 현재 | OpenAI | Claude (Team 크레딧) | OpenAI | OpenAI 결제 필요 | 없음 |
+| B. OpenAI 제거 | Gemini transcribe-live | Claude (Team 크레딧) | Gemini 이미지 | Google Cloud Billing (Pro 크레딧이 적용되면 그 안에서) | Gemini 음성 인식·이미지 어댑터 구현, 오디오 형식 재확인, 새 검증 |
+| C. Gemini 하나로 | Gemini | Gemini Flash-Lite | Gemini 이미지 | Google Cloud Billing | B에 더해 텍스트 어댑터 |
