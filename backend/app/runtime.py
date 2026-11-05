@@ -40,6 +40,20 @@ class JobCancelled(Exception):
     pass
 
 
+_IMAGE_PENDING = {JobStatus.queued.value, JobStatus.text_ready.value, JobStatus.generating_image.value, JobStatus.failed.value}
+
+
+def presentable(slide: dict, session: Optional[dict]) -> bool:
+    """청중에게 보여 줄 수 있는(넘길 수 있는) 장인가.
+    - 완성(ready)된 장
+    - '그림 기다리지 않고 넘기기'가 켜져 있으면: 그림형 장 중 제목·본문이 준비된 장(그림 생성 중·재시도 대기·그림 실패)
+      → 그림 자리는 고정해 두고, 그림이 오면 화면에서 서서히 나타난다."""
+    if slide["status"] == JobStatus.ready.value:
+        return True
+    return bool(session and session.get("show_before_image") and slide["layout"] == "title_bullets_image"
+                and slide["status"] in _IMAGE_PENDING and slide.get("title"))
+
+
 class SessionRuntime:
     def __init__(self, sid: str, settings: Settings, db: Database, hub: Hub, text: TextProvider, image: ImageProvider):
         self.sid = sid
@@ -99,7 +113,7 @@ class SessionRuntime:
             await self.hub.broadcast(self.sid, "slide.removed", {"slide_id": slide_id}, {"slide_id": slide_id},
                                      job_id=sl.get("job_id"))
             return
-        aud = serialize_slide(sl, audience=True) if sl["status"] == JobStatus.ready.value else None
+        aud = serialize_slide(sl, audience=True) if presentable(sl, self.db.get_session(self.sid)) else None
         if aud is None:
             # 발표자에게는 진행 상태를, 청중에게는 '없음'(미완성 장 비노출)을 보낸다
             await self.hub.broadcast(self.sid, "slide.updated", serialize_slide(sl), {"slide_id": slide_id},
@@ -119,7 +133,7 @@ class SessionRuntime:
         if role == "audience":
             return {
                 "session": {"id": s["id"], "title": s["title"], "current_slide_id": s["current_slide_id"]} if s else None,
-                "slides": [serialize_slide(x, audience=True) for x in slides if x["status"] == JobStatus.ready.value],
+                "slides": [serialize_slide(x, audience=True) for x in slides if presentable(x, s)],
             }
         return {
             "session": s,
@@ -409,6 +423,7 @@ class SessionRuntime:
                 return
             await self.emit_slide(slide["id"])
             await self.emit_job(jid)
+            await self._maybe_auto_advance(slide["id"])
 
         slide_id = slide["id"]
         prompt = slide["image_prompt"] or compose_image_prompt(slide["title"])
@@ -473,7 +488,7 @@ class SessionRuntime:
         s = self.db.get_session(self.sid)
         if not s or not (s["auto_advance"] and s["presenting"]):
             return
-        ready = [x["id"] for x in self.db.list_slides(self.sid) if x["status"] == JobStatus.ready.value]
+        ready = [x["id"] for x in self.db.list_slides(self.sid) if presentable(x, s)]
         if s["current_slide_id"] in ready and new_slide_id in ready:
             if ready.index(new_slide_id) == ready.index(s["current_slide_id"]) + 1:
                 self.db.update_session(self.sid, current_slide_id=new_slide_id)
@@ -496,6 +511,14 @@ class SessionRuntime:
         if job.get("slide_id"):
             sl = self.db.get_slide(job["slide_id"])
             if sl and sl["status"] != JobStatus.ready.value:
+                sess = self.db.get_session(self.sid)
+                if sess and sess["current_slide_id"] == sl["id"]:
+                    # 그림 생성 중인 장을 보여 주던 중 취소 → 바로 앞의 보여 줄 수 있는 장으로
+                    prev = [x["id"] for x in self.db.list_slides(self.sid)
+                            if x["id"] != sl["id"] and presentable(x, sess) and x["position"] < sl["position"]]
+                    if prev:
+                        self.db.update_session(self.sid, current_slide_id=prev[-1])
+                        await self.emit_session()
                 self.db.update_slide(sl["id"], status=JobStatus.cancelled.value)
                 await self.emit_slide(sl["id"])
         await self.emit_job(jid)
@@ -547,7 +570,7 @@ class SessionRuntime:
 
     async def navigate(self, slide_id: Optional[str] = None, direction: Optional[str] = None) -> dict:
         s = self.db.get_session(self.sid)
-        ready = [x for x in self.db.list_slides(self.sid) if x["status"] == JobStatus.ready.value]
+        ready = [x for x in self.db.list_slides(self.sid) if presentable(x, s)]
         ids = [x["id"] for x in ready]
         if not ids:
             return {"ok": False, "error": "표시할 수 있는 슬라이드가 없습니다"}
@@ -555,7 +578,7 @@ class SessionRuntime:
         target = cur
         if slide_id:
             if slide_id not in ids:
-                return {"ok": False, "error": "준비 완료된 슬라이드만 표시할 수 있습니다"}
+                return {"ok": False, "error": "준비된 슬라이드만 표시할 수 있습니다"}
             target = slide_id
         elif direction == "next":
             target = ids[min(ids.index(cur) + 1, len(ids) - 1)]

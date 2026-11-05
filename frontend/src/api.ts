@@ -97,6 +97,8 @@ export interface Session {
   current_slide_id: string | null;
   auto_advance: boolean;
   presenting: boolean;
+  /** 그림이 오기 전에도 텍스트가 준비된 그림형 장으로 넘길 수 있음 */
+  show_before_image?: boolean;
   created_at: number;
   updated_at: number;
   slide_count?: number;
@@ -154,7 +156,10 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
 export const api = {
   listSessions: () => req<Session[]>("GET", "/api/sessions"),
   createSession: (title: string, audience: string) => req<Session>("POST", "/api/sessions", { title, audience }),
-  patchSession: (sid: string, body: Partial<Pick<Session, "title" | "audience" | "auto_advance" | "presenting">>) =>
+  patchSession: (
+    sid: string,
+    body: Partial<Pick<Session, "title" | "audience" | "auto_advance" | "presenting" | "show_before_image">>,
+  ) =>
     req<Session>("PATCH", `/api/sessions/${sid}`, body),
   input: (sid: string, text: string, mode: "detect" | "force") =>
     req<{ accepted: boolean; job_id?: string }>("POST", `/api/sessions/${sid}/input`, { text, mode }),
@@ -182,6 +187,14 @@ export const api = {
     req("POST", `/api/sessions/${sid}/metrics/render`, { job_id, slide_id, render_ms }),
   metrics: (sid?: string) => req<Record<string, any>>("GET", `/api/metrics${sid ? `?session_id=${sid}` : ""}`),
 };
+
+const IMAGE_PENDING = new Set(["queued", "text_ready", "generating_image", "failed"]);
+
+/** 서버 runtime.presentable 과 같은 규칙: 넘길 수 있는(청중에게 보일 수 있는) 장 */
+export function presentable(s: Slide, session: Pick<Session, "show_before_image"> | null | undefined): boolean {
+  if (s.status === "ready") return true;
+  return !!(session?.show_before_image ?? true) && s.layout === "title_bullets_image" && IMAGE_PENDING.has(s.status) && !!s.title;
+}
 
 export const STATUS_LABEL: Record<JobStatus, string> = {
   queued: "대기 중",

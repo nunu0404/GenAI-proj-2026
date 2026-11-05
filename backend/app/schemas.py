@@ -369,6 +369,7 @@ class SessionPatch(BaseModel):
     audience: Optional[str] = Field(default=None, min_length=1, max_length=80)
     auto_advance: Optional[bool] = None
     presenting: Optional[bool] = None
+    show_before_image: Optional[bool] = None
 
 
 class ManualInput(BaseModel):

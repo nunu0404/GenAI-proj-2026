@@ -153,11 +153,10 @@ export function SlideView({ slide, presenterHints, onOverflow, onRendered, class
       </div>
       <div className="tbi-image">
         {hasImage ? (
-          <img
+          <FadeImage
             src={slide.image_url!}
             alt={slide.image_alt}
-            draggable={false}
-            onLoad={() => onRendered && requestAnimationFrame(() => onRendered(slide.id))}
+            onLoaded={() => onRendered && requestAnimationFrame(() => onRendered(slide.id))}
           />
         ) : presenterHints ? (
           <div className={`img-placeholder ${slide.status === "generating_image" ? "shimmer" : ""}`}>
@@ -170,7 +169,8 @@ export function SlideView({ slide, presenterHints, onOverflow, onRendered, class
             </span>
           </div>
         ) : (
-          <div className="img-placeholder quiet" />
+          // 청중 화면: 글자 없이 그림 자리만 은은하게 (그림이 오면 서서히 나타남)
+          <div className={`img-placeholder quiet ${slide.status !== "failed" && slide.status !== "ready" ? "soft-shimmer" : ""}`} />
         )}
       </div>
       {presenterHints && (pending || overflow || slide.is_mock) && (
@@ -254,6 +254,32 @@ export function MathText({ text }: { text: string }) {
         p.math && p.html ? <span key={i} className="mt-math" dangerouslySetInnerHTML={{ __html: p.html }} /> : <span key={i}>{p.s}</span>,
       )}
     </>
+  );
+}
+
+/**
+ * 그림이 '다 받아진 뒤' 흐림·살짝 확대 상태에서 선명하게 나타난다 (점진 디코딩이 보이지 않게).
+ * 이미 받아 둔 그림(앞 장으로 돌아간 경우 등)은 애니메이션 없이 바로 보여 준다.
+ */
+function FadeImage({ src, alt, onLoaded }: { src: string; alt: string; onLoaded?: () => void }) {
+  const ref = useRef<HTMLImageElement>(null);
+  const [phase, setPhase] = useState<"init" | "anim" | "done">("init");
+  useLayoutEffect(() => {
+    const el = ref.current;
+    setPhase(el && el.complete && el.naturalWidth > 0 ? "done" : "init");
+  }, [src]);
+  return (
+    <img
+      ref={ref}
+      src={src}
+      alt={alt}
+      draggable={false}
+      className={`img-fade ${phase}`}
+      onLoad={() => {
+        setPhase((p) => (p === "done" ? p : "anim"));
+        onLoaded?.();
+      }}
+    />
   );
 }
 

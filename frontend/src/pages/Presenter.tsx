@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, STATUS_LABEL, type Equation, type Job, type Slide } from "../api";
+import { api, presentable, STATUS_LABEL, type Equation, type Job, type Slide } from "../api";
 import { MicError, startMic, type MicHandle } from "../audio/mic";
 import { EquationBlock, SlideFrame, SlideView } from "../components/SlideView";
 import { isTypingTarget } from "../keys";
@@ -37,6 +37,8 @@ export function Presenter({ sid }: { sid: string }) {
   });
   const [toast, setToast] = useState<string | null>(null);
   const presentModeRef = useRef(false);
+  const currentIdRef = useRef<string | null>(null);
+  const showBeforeRef = useRef(true);
   // 작업 단계가 처음 관찰된 브라우저 시각 (서버 시계와 섞지 않음)
   const stageSeen = useRef(new Map<string, number>());
   const [, setNowTick] = useState(0);
@@ -48,8 +50,10 @@ export function Presenter({ sid }: { sid: string }) {
   const current = curIdx >= 0 ? slides[curIdx] : slides.find((s) => s.status === "ready");
   const nextSlide = curIdx >= 0 ? slides[curIdx + 1] : undefined;
   const preview = (selectedId && slides.find((s) => s.id === selectedId)) || nextSlide;
-  const readySlides = slides.filter((s) => s.status === "ready");
+  const readySlides = slides.filter((s) => presentable(s, session));
   const readyIdx = current ? readySlides.findIndex((s) => s.id === current.id) : -1;
+  currentIdRef.current = current?.id ?? null;
+  showBeforeRef.current = session?.show_before_image ?? true;
   const canPrev = readyIdx > 0;
   const canNext = readyIdx >= 0 && readyIdx < readySlides.length - 1;
   const jobById = useMemo(() => new Map(jobs.map((j) => [j.id, j])), [jobs]);
@@ -70,14 +74,14 @@ export function Presenter({ sid }: { sid: string }) {
   );
   const goTo = useCallback(
     async (slide: Slide) => {
-      if (slide.status !== "ready") {
+      if (!presentable(slide, session)) {
         setSelectedId(slide.id);
         return;
       }
       setSelectedId(null);
       await api.navigate(sid, { slide_id: slide.id }).catch((e) => notify("error", String(e.message)));
     },
-    [sid, notify],
+    [sid, notify, session],
   );
 
   useEffect(() => {
@@ -160,8 +164,10 @@ export function Presenter({ sid }: { sid: string }) {
       subscribe((m) => {
         if (m.type === "job.updated" && m.data.status === "ready" && m.data.slide_id) {
           pendingRender.current.set(m.data.slide_id, { t0: performance.now(), jobId: m.data.id });
-          if (presentModeRef.current) showToast("다음 장 준비됨 — → 키로 넘기기");
+          if (presentModeRef.current && m.data.slide_id !== currentIdRef.current) showToast("다음 장 준비됨 — → 키로 넘기기");
         }
+        if (m.type === "job.updated" && m.data.status === "text_ready" && presentModeRef.current && showBeforeRef.current)
+          showToast("다음 장 넘길 수 있음 — 그림은 준비되면 나타납니다", 4000);
         if (m.type === "job.updated" && presentModeRef.current) {
           if (m.data.status === "failed") showToast(`다음 장 생성 실패 — ${m.data.error_message ?? "Esc 후 재시도"}`, 8000);
           if (m.data.status === "needs_input") showToast("주제 확인이 필요한 요청이 있습니다 — Esc 후 입력해 주세요", 8000);
@@ -331,6 +337,14 @@ export function Presenter({ sid }: { sid: string }) {
               />
               발표 시작 시 마이크 켜기
             </label>
+            <label className="toggle" title="제목·본문이 준비되면 그림을 기다리지 않고 넘길 수 있습니다. 그림은 도착하면 서서히 나타납니다.">
+              <input
+                type="checkbox"
+                checked={session.show_before_image ?? true}
+                onChange={(e) => act(() => api.patchSession(sid, { show_before_image: e.target.checked }))}
+              />
+              그림 기다리지 않고 넘기기
+            </label>
             <label className="toggle" title="이미지까지 준비된 새 장으로 자동 이동 (현재 장이 바로 앞 장일 때만)">
               <input type="checkbox" checked={session.auto_advance} onChange={(e) => act(() => api.patchSession(sid, { auto_advance: e.target.checked }))} />
               생성 완료 시 자동 전환
@@ -389,7 +403,11 @@ export function Presenter({ sid }: { sid: string }) {
                     <button onClick={() => act(() => api.finalizeWithoutImage(sid, preview.id))}>이미지 없이 완료</button>
                   )}
                   {preview.title && preview.layout !== "cover" && <button className="ghost" onClick={() => setEditing(preview)}>제목·본문 수정</button>}
-                  {preview.status === "ready" && <button className="primary" onClick={() => goTo(preview)}>이 장 표시</button>}
+                  {presentable(preview, session) && (
+                    <button className="primary" onClick={() => goTo(preview)}>
+                      이 장 표시{preview.status !== "ready" ? " (그림은 도착하면 나타남)" : ""}
+                    </button>
+                  )}
                 </div>
               </>
             ) : pendingNoSlide.length > 0 ? (
@@ -504,7 +522,9 @@ export function Presenter({ sid }: { sid: string }) {
           <SlideFrame slide={current} />
           {/* 청중도 볼 수 있는 화면이므로 상태 표시는 작고 흐리게 */}
           <div className={`present-mic mic-${!micOn ? (micStarting ? "connecting" : "off") : state.stt.state === "error" ? "error" : state.stt.state === "connecting" || state.stt.state === "reconnecting" ? "connecting" : state.vadSpeaking ? "speaking" : "listening"}`} title="마이크 상태 (M 키로 켜기/끄기)" />
-          {runningJob && <GenStatus job={runningJob} queued={activeJobs.length - 1} seen={stageSeen.current} />}
+          {runningJob && (
+            <GenStatus job={runningJob} queued={activeJobs.length - 1} seen={stageSeen.current} isCurrent={!!current && runningJob.slide_id === current.id} />
+          )}
           {(toast || (micErr && micOn)) && <div className={`present-toast ${micErr && micOn ? "err" : ""}`}>{micErr && micOn ? micErr : toast}</div>}
           <div className="present-ctrl">
             <button onClick={() => go("prev")} disabled={!canPrev}>◀</button>
@@ -554,14 +574,14 @@ const GEN_LABEL: Record<string, string> = {
 };
 
 /** 전체 화면 발표 중 생성 진행 상태 (작고 흐리게). 경과 시간은 이 단계가 처음 보인 브라우저 시각 기준. */
-function GenStatus({ job, queued, seen }: { job: Job; queued: number; seen: Map<string, number> }) {
+function GenStatus({ job, queued, seen, isCurrent }: { job: Job; queued: number; seen: Map<string, number>; isCurrent?: boolean }) {
   const key = `${job.id}:${job.status}`;
   if (!seen.has(key)) seen.set(key, performance.now());
   const sec = Math.floor((performance.now() - (seen.get(key) ?? performance.now())) / 1000);
   return (
     <div className="present-gen" role="status" aria-live="polite">
       <span className="gen-spin" aria-hidden />
-      {GEN_LABEL[job.status] ?? "다음 장 생성 중"}…{job.status !== "queued" && sec >= 1 ? ` ${sec}초` : ""}
+      {isCurrent && job.status !== "planning" && job.status !== "queued" ? "이 장 그림 준비 중" : (GEN_LABEL[job.status] ?? "다음 장 생성 중")}…{job.status !== "queued" && sec >= 1 ? ` ${sec}초` : ""}
       {queued > 0 && <span className="gen-q"> · 대기 {queued}</span>}
     </div>
   );

@@ -110,6 +110,10 @@ class Database:
 
     def _migrate(self) -> None:
         """기존 DB 파일에 새 칼럼을 추가한다(데이터 유지)."""
+        scols = {r["name"] for r in self._conn.execute("PRAGMA table_info(sessions)").fetchall()}
+        if "show_before_image" not in scols:
+            # 그림이 오기 전에도 텍스트가 준비된 장으로 넘길 수 있게 (기본 켜짐)
+            self._conn.execute("ALTER TABLE sessions ADD COLUMN show_before_image INTEGER NOT NULL DEFAULT 1")
         cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(slides)").fetchall()}
         if "equations" not in cols:
             self._conn.execute("ALTER TABLE slides ADD COLUMN equations TEXT NOT NULL DEFAULT '[]'")
@@ -149,6 +153,7 @@ class Database:
         if s:
             s["auto_advance"] = bool(s["auto_advance"])
             s["presenting"] = bool(s["presenting"])
+            s["show_before_image"] = bool(s.get("show_before_image", 1))
         return s
 
     def list_sessions(self) -> list[dict]:
@@ -167,7 +172,7 @@ class Database:
         cols = []
         vals = []
         for k, v in fields.items():
-            if k not in {"title", "audience", "current_slide_id", "auto_advance", "presenting"}:
+            if k not in {"title", "audience", "current_slide_id", "auto_advance", "presenting", "show_before_image"}:
                 raise ValueError(k)
             cols.append(f"{k}=?")
             vals.append(int(v) if isinstance(v, bool) else v)

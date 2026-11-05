@@ -44,8 +44,11 @@ def test_presenter_audience_flow(client):
         assert all("session_id" in m for m in got)
         assert all(m.get("job_id") for m in got if m["type"] == "job.updated")
         # 청중: 자막/작업/감지 이벤트를 받지 않고, 완성된 장만 받는다
-        aud_got = recv_until(aud, lambda m: m["type"] == "slide.updated")
+        # 청중은 텍스트가 준비된 그림형 장을 먼저 받고(그림 없음), 그림이 오면 같은 장을 다시 받는다
+        aud_got = recv_until(aud, lambda m: m["type"] == "slide.updated" and m["data"]["status"] == "ready")
         assert {m["type"] for m in aud_got} <= {"slide.updated", "slide.removed", "session.updated"}
+        early = [m["data"] for m in aud_got if m["type"] == "slide.updated" and m["data"]["status"] != "ready"]
+        assert early and early[0]["title"] and early[0]["image_url"] is None
         ready = aud_got[-1]["data"]
         assert ready["status"] == "ready" and ready["image_url"] and "speaker_notes" not in ready
         # 동기화: 발표자가 다음 장으로 이동 → 청중에 session.updated

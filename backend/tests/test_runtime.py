@@ -71,9 +71,14 @@ async def test_image_failure_keeps_existing_slides_and_retry(make_rt):
     failed = slides[1]
     assert failed["status"] == "failed" and failed["title"] and not failed["image_path"]  # 텍스트 초안 유지
     assert rt.db.get_session(rt.sid)["current_slide_id"] == before[0]["id"]
-    # 실패한 장으로는 이동 불가
+    # '그림 기다리지 않고 넘기기'를 끄면: 그림 실패 장으로는 이동 불가 (예전 규칙)
+    rt.db.update_session(rt.sid, show_before_image=False)
     res = await rt.navigate(slide_id=failed["id"])
     assert not res["ok"]
+    # 켜면(기본): 텍스트만 있는 장으로 넘길 수 있음
+    rt.db.update_session(rt.sid, show_before_image=True)
+    assert (await rt.navigate(slide_id=failed["id"]))["ok"]
+    await rt.navigate(slide_id=before[0]["id"])
     # 재시도 → 이미지만 다시 생성
     assert (await rt.retry(job["id"]))["ok"]
     await wait_for(lambda: job_status(rt, job["id"]) == "ready")
@@ -301,3 +306,33 @@ def test_old_database_is_migrated(tmp_path):
     s = db.list_slides("ses_000000000001")
     assert s[0]["equations"] == [] and s[0]["layout"] == "cover"
     db.close()
+
+
+@pytest.mark.asyncio
+async def test_show_before_image_flow(make_rt):
+    gate = asyncio.Event()
+    rt = make_rt(image=MockImageProvider(delay_ms=0, gate=gate))
+    cover = rt.db.get_session(rt.sid)["current_slide_id"]
+    await rt.manual_input(REQ, "force")
+    job = latest_job(rt)
+    await wait_for(lambda: job_status(rt, job["id"]) == "generating_image")
+    sid_ = rt.db.get_job(job["id"])["slide_id"]
+    # 그림 생성 중에도 넘길 수 있고 청중 스냅샷에 포함 (그림 없음)
+    assert (await rt.navigate(direction="next"))["current_slide_id"] == sid_
+    aud = rt.snapshot("audience")
+    assert [s["id"] for s in aud["slides"]][-1] == sid_ and aud["slides"][-1]["image_url"] is None
+    # 보여 주던 장을 취소하면 앞 장으로 돌아감
+    await rt.cancel(job["id"])
+    assert rt.db.get_session(rt.sid)["current_slide_id"] == cover
+    gate.set()
+    # 옵션을 끄면 그림 생성 중인 장은 청중에게 보이지 않음
+    rt.db.update_session(rt.sid, show_before_image=False)
+    gate2 = asyncio.Event()
+    rt.image = MockImageProvider(delay_ms=0, gate=gate2)
+    await rt.manual_input("다음 슬라이드에서는 드롭아웃을 비유로 설명하겠습니다", "force")
+    j2 = latest_job(rt)
+    await wait_for(lambda: job_status(rt, j2["id"]) == "generating_image")
+    assert all(s["status"] == "ready" for s in rt.snapshot("audience")["slides"])
+    assert (await rt.navigate(direction="next"))["current_slide_id"] == cover
+    gate2.set()
+    await wait_for(lambda: job_status(rt, j2["id"]) == "ready")

@@ -113,6 +113,16 @@ label { display: grid; gap: 4px; font-weight: 500; }
 .img-placeholder.quiet { background: var(--s-soft); }
 .shimmer { background: linear-gradient(100deg, #e8efee 30%, #f6f9f8 50%, #e8efee 70%); background-size: 300% 100%; animation: shimmer 1.6s linear infinite; }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+.soft-shimmer { background: linear-gradient(100deg, #e9efed 35%, #f4f7f6 50%, #e9efed 65%); background-size: 300% 100%; animation: shimmer 2.4s linear infinite; }
+/* 그림 등장: 다 받은 뒤 흐림·살짝 확대 → 선명·원래 크기 */
+.img-fade.init { opacity: 0; transform: scale(1.03); filter: blur(14px); }
+.img-fade.anim { opacity: 1; transform: none; filter: none; transition: opacity 650ms ease-out, transform 900ms cubic-bezier(.2,.7,.2,1), filter 900ms ease-out; }
+.img-fade.done { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .soft-shimmer { animation: none; }
+  .img-fade.init { transform: none; filter: none; }
+  .img-fade.anim { transition: opacity 300ms ease-out; }
+}
 /* 비교·표·그래프형: 제목 / 큰 시각 요소 / 하단 핵심 요약 */
 .slide { --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --ink: #1f2a3c; --ink-2: #5b6472; --grid: #e4e0d4; }
 .slide-sv { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; row-gap: 2cqw; padding: 3.6cqw 4.4cqw 3.4cqw; }

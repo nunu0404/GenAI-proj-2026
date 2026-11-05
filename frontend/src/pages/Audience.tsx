@@ -26,7 +26,8 @@ export function Audience({ sid }: { sid: string }) {
     if (state.session?.title) document.title = state.session.title;
   }, [state.session?.title]);
 
-  const slide = state.slides.find((s) => s.id === state.session?.current_slide_id && s.status === "ready");
+  // 서버가 청중에게 보낼 수 있는 장만 보내므로(완성 장 + 옵션에 따라 그림 준비 중인 그림형 장) id 로 찾는다
+  const slide = state.slides.find((s) => s.id === state.session?.current_slide_id);
   return (
     <div
       className={`audience ${idle ? "idle" : ""}`}
