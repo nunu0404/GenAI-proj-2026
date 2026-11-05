@@ -28,6 +28,16 @@ export function Presenter({ sid }: { sid: string }) {
   const [metrics, setMetrics] = useState<Record<string, any> | null>(null);
   const [clarify, setClarify] = useState<Record<string, string>>({});
   const [previewOverflow, setPreviewOverflow] = useState(false);
+  const [autoMic, setAutoMic] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("nextslide.autoMic") !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const [toast, setToast] = useState<string | null>(null);
+  const presentModeRef = useRef(false);
+  const toggleMicRef = useRef<() => void>(() => undefined);
   const presentRef = useRef<HTMLDivElement>(null);
 
   // ------------------------------------------------ 파생 상태
@@ -68,6 +78,17 @@ export function Presenter({ sid }: { sid: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target) || e.altKey || e.ctrlKey || e.metaKey) return;
+      // 물리 키 위치(e.code)로 판별: 한글 입력 상태에서도 M/F 가 동작하도록
+      if (e.code === "KeyM" && !e.repeat) {
+        e.preventDefault();
+        toggleMicRef.current();
+        return;
+      }
+      if (e.code === "KeyF" && presentMode && !document.fullscreenElement) {
+        e.preventDefault();
+        presentRef.current?.requestFullscreen?.().catch(() => undefined);
+        return;
+      }
       if (["ArrowRight", "PageDown", " "].includes(e.key)) {
         e.preventDefault();
         void go("next");
@@ -86,16 +107,37 @@ export function Presenter({ sid }: { sid: string }) {
   // ------------------------------------------------ 발표 모드 (전체 화면)
   const enterPresent = async () => {
     setPresentMode(true);
+    presentModeRef.current = true;
     if (session && !session.presenting) void api.patchSession(sid, { presenting: true });
-    requestAnimationFrame(() => presentRef.current?.requestFullscreen?.().catch(() => undefined));
+    const wantMic = autoMic && !micRef.current;
+    let permission = "prompt";
+    try {
+      permission = (await navigator.permissions?.query({ name: "microphone" as PermissionName }))?.state ?? "prompt";
+    } catch {
+      /* 일부 브라우저는 microphone 권한 조회 미지원 */
+    }
+    // 권한 창이 필요하면 전체 화면 전에 마이크를 먼저 켠다 (권한 창이 전체 화면을 방해하지 않도록)
+    if (wantMic && permission !== "granted") await startMicClick();
+    requestAnimationFrame(() =>
+      presentRef.current?.requestFullscreen?.().catch(() => showToast("F 키를 누르면 전체 화면으로 전환됩니다")),
+    );
+    if (wantMic && permission === "granted") void startMicClick();
   };
+  const showToast = useCallback((text: string, ms = 3000) => {
+    setToast(text);
+    window.setTimeout(() => setToast((t) => (t === text ? null : t)), ms);
+  }, []);
   const exitPresent = async () => {
     setPresentMode(false);
+    presentModeRef.current = false;
     if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
   };
   useEffect(() => {
     const h = () => {
-      if (!document.fullscreenElement) setPresentMode(false);
+      if (!document.fullscreenElement) {
+        setPresentMode(false);
+        presentModeRef.current = false;
+      }
     };
     document.addEventListener("fullscreenchange", h);
     return () => document.removeEventListener("fullscreenchange", h);
@@ -106,10 +148,12 @@ export function Presenter({ sid }: { sid: string }) {
   useEffect(
     () =>
       subscribe((m) => {
-        if (m.type === "job.updated" && m.data.status === "ready" && m.data.slide_id)
+        if (m.type === "job.updated" && m.data.status === "ready" && m.data.slide_id) {
           pendingRender.current.set(m.data.slide_id, { t0: performance.now(), jobId: m.data.id });
+          if (presentModeRef.current) showToast("다음 장 준비됨 — → 키로 넘기기");
+        }
       }),
-    [subscribe],
+    [subscribe, showToast],
   );
   const onRendered = useCallback(
     (slideId: string) => {
@@ -154,6 +198,12 @@ export function Presenter({ sid }: { sid: string }) {
       setMicStarting(false);
     }
   };
+  const toggleMic = () => {
+    if (micStarting) return;
+    if (micRef.current) stopMic();
+    else void startMicClick();
+  };
+  toggleMicRef.current = toggleMic;
   useEffect(() => () => micRef.current?.stop(), []);
   useEffect(() => {
     if (micOn && conn === "closed") setMicErr("서버 연결이 끊겼습니다. 재연결되면 음성 인식이 자동으로 다시 시작됩니다.");
@@ -251,6 +301,21 @@ export function Presenter({ sid }: { sid: string }) {
             <label className="toggle" title="발표 중일 때만 자동 전환됩니다">
               <input type="checkbox" checked={session.presenting} onChange={(e) => act(() => api.patchSession(sid, { presenting: e.target.checked }))} />
               발표 중
+            </label>
+            <label className="toggle" title="전체 화면 발표를 시작하면 마이크도 함께 켭니다. 발표 중에는 M 키로 켜고 끌 수 있습니다.">
+              <input
+                type="checkbox"
+                checked={autoMic}
+                onChange={(e) => {
+                  setAutoMic(e.target.checked);
+                  try {
+                    localStorage.setItem("nextslide.autoMic", e.target.checked ? "1" : "0");
+                  } catch {
+                    /* noop */
+                  }
+                }}
+              />
+              발표 시작 시 마이크 켜기
             </label>
             <label className="toggle" title="이미지까지 준비된 새 장으로 자동 이동 (현재 장이 바로 앞 장일 때만)">
               <input type="checkbox" checked={session.auto_advance} onChange={(e) => act(() => api.patchSession(sid, { auto_advance: e.target.checked }))} />
@@ -419,12 +484,20 @@ export function Presenter({ sid }: { sid: string }) {
       {presentMode && (
         <div className="present" ref={presentRef} onDoubleClick={exitPresent}>
           <SlideFrame slide={current} />
+          {/* 청중도 볼 수 있는 화면이므로 상태 표시는 작고 흐리게 */}
+          <div className={`present-mic mic-${!micOn ? (micStarting ? "connecting" : "off") : state.stt.state === "error" ? "error" : state.stt.state === "connecting" || state.stt.state === "reconnecting" ? "connecting" : state.vadSpeaking ? "speaking" : "listening"}`} title="마이크 상태 (M 키로 켜기/끄기)" />
+          {(toast || (micErr && micOn)) && <div className={`present-toast ${micErr && micOn ? "err" : ""}`}>{micErr && micOn ? micErr : toast}</div>}
           <div className="present-ctrl">
             <button onClick={() => go("prev")} disabled={!canPrev}>◀</button>
             <span>{readyIdx + 1} / {readySlides.length}</span>
             <button onClick={() => go("next")} disabled={!canNext}>▶</button>
+            <button onClick={toggleMic} disabled={micStarting} title="M 키">
+              {micStarting ? "마이크 준비 중…" : micOn ? "■ 마이크 끄기" : "● 마이크 켜기"}
+            </button>
             {nextSlide && nextSlide.status !== "ready" && <span className="chip st-generating_image">다음 장 {STATUS_LABEL[nextSlide.status]}</span>}
-            <button onClick={exitPresent}>나가기 (Esc)</button>
+            {!micOn && micErr && <span className="present-err">{micErr}</span>}
+            <span className="present-hint">M 마이크 · F 전체 화면 · Esc 나가기</span>
+            <button onClick={exitPresent}>나가기</button>
           </div>
         </div>
       )}

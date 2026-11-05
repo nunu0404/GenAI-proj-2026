@@ -192,6 +192,17 @@ label { display: grid; gap: 4px; font-weight: 500; }
   background: rgba(20,20,20,.7); color: #eee; padding: 6px 10px; border-radius: 10px; opacity: 0; transition: opacity 200ms; }
 .present:hover .present-ctrl { opacity: 1; }
 .present-ctrl button { background: transparent; color: #eee; border-color: #555; }
+.present-hint { font-size: 12px; color: #aaa; }
+.present-err { font-size: 12px; color: #ff9b8f; max-width: 360px; }
+/* 마이크 상태 점: 작고 흐리게 (청중 화면을 방해하지 않도록) */
+.present-mic { position: absolute; top: 12px; right: 12px; width: 10px; height: 10px; border-radius: 50%; opacity: .55; pointer-events: none; }
+.present-mic.mic-off { display: none; }
+.present-mic.mic-listening { background: #3fb27f; }
+.present-mic.mic-speaking { background: #3fb27f; opacity: .9; box-shadow: 0 0 0 4px rgba(63,178,127,.25); }
+.present-mic.mic-connecting { background: #e0b84a; }
+.present-mic.mic-error { background: #e05a4a; opacity: .9; }
+.present-toast { position: absolute; bottom: 64px; right: 16px; background: rgba(20,20,20,.72); color: #eee; font-size: 13px; padding: 6px 12px; border-radius: 8px; pointer-events: none; animation: slideIn 200ms ease-out both; }
+.present-toast.err { background: rgba(160,40,30,.85); }
 
 /* 청중 화면 */
 .audience { position: fixed; inset: 0; background: #000; display: grid; place-items: center; }
