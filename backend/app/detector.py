@@ -31,6 +31,9 @@ R_COMPLETE = re.compile(
     rf"해\s*드리겠습니다|해\s*드릴게요|해\s*주세요|해\s*줘)"
     rf"|{_STEMS}\s*(?:하|드리|해\s*드리|해\s*보){_DOROK}"
     rf"|(?:다루|살펴보|알아보|보여\s*드리|짚어\s*보|보){_DOROK}"
+    # 구어체 예정 표현: '살펴볼 건데요', '설명할 거예요', '다룰 예정입니다'
+    rf"|(?:{_STEMS}\s*(?:할|드릴|해\s*드릴|해\s*볼)|살펴볼|알아볼|다룰|다뤄\s*볼|짚어\s*볼|볼|보여\s*드릴)"
+    r"\s*(?:건데요|거예요|겁니다|거거든요|예정입니다|생각입니다)"
     r"|다루겠습니다|다룰게요|다뤄\s*보겠습니다|다뤄\s*볼게요|살펴보겠습니다|살펴볼게요|알아보겠습니다|알아볼게요"
     r"|보여\s*주세요|보여\s*줘요?|보여\s*드리겠습니다|보여\s*드릴게요|보여\s*줄게요|넣어\s*주세요|그려\s*주세요|만들어\s*주세요"
 )
@@ -46,7 +49,7 @@ R_NEGATION = re.compile(
 )
 # 트리거 바로 뒤에 오면 생성 요청이 아니라 장 넘김/참조 발화로 본다
 R_NON_REQUEST_AFTER = re.compile(
-    r"^\s*(?:를|을|에서|에)?\s*(?:보시면|보면|보시죠|보세요|보겠습니다|볼게요|봅시다|보시다시피|보도록|볼까요|보기로|넘기|넘어|넘겨|가\s*보|가겠|갈게|"
+    r"^\s*(?:를|을|에서|에)?\s*(?:보시면|보면|보시죠|보세요|보겠습니다|볼게요|봅시다|보시다시피|보도록|볼까요|보기로|볼\s*건데요|볼\s*거예요|넘기|넘어|넘겨|가\s*보|가겠|갈게|"
     r"로\s*넘어|으로\s*넘어|로\s*가|으로\s*가)"
 )
 # 완료 표현 직후에 오면 '인용'
@@ -292,7 +295,13 @@ class RequestDetector:
             return _Outcome("request", comp_end, topic=topic, trigger="completion")
 
         # kind == "next"
-        c = R_COMPLETE.search(after)
+        # 트리거가 있는 문장 범위. 그 문장에 주제가 있으면 완료 표현도 그 문장 안에서만 찾는다
+        # ('다음 슬라이드에서는.' 처럼 트리거만 있는 문장이면 다음 문장까지 허용 — STT 구두점 오류 대비).
+        sent_end = min([i for i in (after.find("."), after.find("?"), after.find("!")) if i >= 0] or [len(after)])
+        first_sentence = after[:sent_end]
+        has_topic_in_sentence = topic_is_sufficient(clean_topic(first_sentence))
+        c = R_COMPLETE.search(after[:sent_end + 1] if has_topic_in_sentence else after)
+        sentence_closed = has_topic_in_sentence and sent_end < len(after) and bool(after[sent_end + 1:].strip())
         if c:
             comp_end = tend + c.end()
             span_txt = J[start:comp_end]
@@ -312,22 +321,26 @@ class RequestDetector:
                 return _Outcome("needs_input", comp_end, topic=topic or None, reason="topic_unclear", trigger="completion")
             return _Outcome("request", comp_end, topic=topic, trigger="completion")
 
-        if R_NEGATION.search(after):
-            return _Outcome("ignored", len(J), reason="negated")
-        if not force:
+        scope = first_sentence if has_topic_in_sentence else after
+        scope_end = tend + (sent_end + 1 if has_topic_in_sentence and sent_end < len(after) else len(after))
+        if R_NEGATION.search(scope):
+            return _Outcome("ignored", scope_end, reason="negated")
+        if not force and not sentence_closed:
             return _Outcome("pending", len(J))
-        # 침묵으로 종료
+        # 침묵으로 종료, 또는 문장이 끝나고 다음 문장이 시작됨 → 트리거 문장만으로 판단
+        end_pos = scope_end if sentence_closed else len(J)
+        trig = "silence" if not sentence_closed else "sentence_end"
         if quoted_before:
-            return _Outcome("ignored", len(J), reason="quoted")
-        tail = normalize(after)
+            return _Outcome("ignored", end_pos, reason="quoted")
+        tail = normalize(scope)
         topic = clean_topic(tail)
         if not tail or not topic_is_sufficient(topic):
-            return _Outcome("needs_input", len(J), topic=topic or None, reason="cut_off", trigger="silence")
+            return _Outcome("needs_input", end_pos, topic=topic or None, reason="cut_off", trigger=trig)
         if DANGLING.search(tail):
-            return _Outcome("needs_input", len(J), topic=topic, reason="cut_off", trigger="silence")
+            return _Outcome("needs_input", end_pos, topic=topic, reason="cut_off", trigger=trig)
         if DECLARATIVE_END.search(tail):
-            return _Outcome("needs_input", len(J), topic=topic, reason="no_request_expression", trigger="silence")
-        return _Outcome("request", len(J), topic=topic, trigger="silence")
+            return _Outcome("needs_input", end_pos, topic=topic, reason="no_request_expression", trigger=trig)
+        return _Outcome("request", end_pos, topic=topic, trigger=trig)
 
     def _scan(self, force: bool, now: float) -> list[DetectorEvent]:
         J, offs = self._join()

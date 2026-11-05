@@ -194,3 +194,20 @@ def test_polite_dorok_forms():
         d = RequestDetector(silence_s=2.5)
         evs = d.feed_final("a", text, 1.0) + d.tick(5.0)
         assert [e.kind for e in evs if e.kind != "candidate"] == [], text
+
+
+def test_conversational_future_forms_and_sentence_scope():
+    real = ["다음 장에서는 우선 머신러닝 기본 개념을 살펴볼 건데요.", "기본 개념이라고 한다면은 우선은",
+            "수학적인 개념이 있을 거고", "그다음에는", "어.", "컴퓨터적인 개념이겠죠?"]
+    d = RequestDetector(silence_s=2.5)
+    evs, t = feed(d, real)
+    evs += d.tick(t + 3)
+    reqs = [e for e in evs if e.kind == "request"]
+    assert len(reqs) == 1 and reqs[0].topic.endswith("머신러닝 기본 개념")
+    assert [e for e in evs if e.kind == "needs_input"] == []  # 뒤 문장이 섞여 보완 요청이 되지 않음
+    for text in ["다음 장을 볼 건데요.", "다음 슬라이드를 볼 거예요."]:
+        d = RequestDetector(silence_s=2.5)
+        assert [e for e in d.feed_final("a", text, 1.0) + d.tick(5) if e.kind != "candidate"] == [], text
+    d = RequestDetector(silence_s=2.5)
+    evs, _ = feed(d, ["다음 슬라이드에서는.", "과적합을 설명하겠습니다."])  # 트리거만 있는 문장 뒤 구두점 오류
+    assert [e.topic for e in evs if e.kind == "request"] == ["과적합"]

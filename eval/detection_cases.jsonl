@@ -55,3 +55,6 @@
 {"id": "dorok-01", "category": "added", "segments": ["다음 슬라이드에서는 과적합을 설명하도록 하겠습니다."], "label": "request", "topic_contains": "과적합"}
 {"id": "dorok-n01", "category": "added_negative", "segments": ["다음 장을 보도록 하겠습니다."], "label": "none"}
 {"id": "dorok-n02", "category": "added_negative", "segments": ["다음 슬라이드로 넘어가도록 하겠습니다."], "label": "none"}
+{"id": "real-02", "category": "real_user", "segments": ["안녕하십니까. 지금부터 어 머신러닝 기초 수업을 시작하도록 하겠습니다. 어 다음 슬라이드에선 우선 어 오늘 수업에 대한 목차를 설명드리도록 하겠습니다."], "label": "request", "topic_contains": "목차", "note": "2026-11-05 실제 마이크 → Gemini 전사 결과 그대로"}
+{"id": "real-03", "category": "real_user", "segments": ["어 오늘 수업의 흐름으로는 어 먼저 머신러닝이 무엇인지 기본 개념 살펴보고 데이터와 패턴 이해하는 과정 이해하고 어 배운 마지막 간단한 적용 사례를 통해 배운 내용 요약합니다."], "label": "none", "note": "실제 전사, 일반 설명"}
+{"id": "real-04", "category": "real_user", "segments": ["다음 장에서는 우선 머신러닝 기본 개념을 살펴볼 건데요.", "기본 개념이라고 한다면은 우선은", "수학적인 개념이 있을 거고", "그다음에는", "어.", "컴퓨터적인 개념이겠죠?"], "label": "request", "topic_contains": "머신러닝 기본 개념", "note": "실제 전사. 수정 전에는 뒤 문장까지 섞여 보완 요청이 됨"}
