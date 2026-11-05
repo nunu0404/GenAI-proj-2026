@@ -1,0 +1,29 @@
+{
+  "created": "2026-11-05T14:31:55",
+  "note": "비용은 응답 사용량 × 환경변수 단가로 계산한 추정치이며 실제 청구액이 아님",
+  "stt": {
+    "provider": "gemini",
+    "model": "gemini-3.5-transcribe-live",
+    "sample_rate": 16000,
+    "server_responded": true,
+    "request_accepted": true,
+    "result_valid": null,
+    "ack_ms": 812.1,
+    "effective_session": {
+      "setupComplete": true
+    },
+    "session_check": {
+      "verified": [
+        "setupComplete"
+      ],
+      "missing": [],
+      "not_verifiable_by_protocol": [
+        "model",
+        "languageCodes",
+        "audio format"
+      ],
+      "strict": false
+    },
+    "status": "설정 승인·검증 성공 (오디오 미전송)"
+  }
+}

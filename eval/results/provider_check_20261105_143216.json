@@ -1,0 +1,38 @@
+{
+  "created": "2026-11-05T14:32:16",
+  "note": "비용은 응답 사용량 × 환경변수 단가로 계산한 추정치이며 실제 청구액이 아님",
+  "text": {
+    "provider": "openai",
+    "model": "gpt-6-luna",
+    "server_responded": true,
+    "request_accepted": true,
+    "result_valid": true,
+    "http_status": 200,
+    "status": "구조화 슬라이드 수신·검증 성공",
+    "latency_ms": 6961.7,
+    "repairs": 0,
+    "served_model": "gpt-6-luna",
+    "request_settings": {
+      "reasoning_effort": "none",
+      "max_output_tokens": 4000,
+      "store": false
+    },
+    "input_tokens": 765,
+    "output_tokens": 291,
+    "cost_estimate_usd": 0.000222,
+    "spec": {
+      "title": "과적합은 답을 외운 학생과 같다",
+      "bullets": [
+        "시험 문제의 답만 외운 학생은 익숙한 문제에는 잘 답합니다.",
+        "표현이 조금만 달라진 문제에는 배운 내용을 적용하기 어렵습니다.",
+        "모델도 학습 예시만 외우면 처음 보는 데이터에서 실수할 수 있습니다."
+      ],
+      "visual_intent": "익숙한 문제에는 자신 있게 답하지만 낯선 변형 문제 앞에서 막히는 학생을 보여 줍니다. 이를 학습 예시만 외운 모델의 한계와 연결합니다.",
+      "image_prompt": "A student sits at a desk with familiar practice questions neatly memorized and answers one confidently. Nearby, the student encounters a new question with a slightly different wording and hesitates, looking puzzled. Show the contrast clearly through the student's posture and the two kinds of question sheets; keep all pages blank of readable text, numbers, labels, and formulas.",
+      "speaker_notes": "과적합은 시험 문제의 답만 외운 학생과 비슷합니다. 외웠던 문제와 같으면 잘 풀지만, 표현이나 상황이 조금 달라지면 원리를 적용하기 어렵습니다. 모델도 학습 데이터만 외우듯 맞추면 새로운 데이터에 잘 대응하지 못할 수 있습니다.",
+      "needs_clarification": false,
+      "clarification_reason": null,
+      "precision_warning": null
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "created": "2026-11-05T14:32:35",
+  "note": "비용은 응답 사용량 × 환경변수 단가로 계산한 추정치이며 실제 청구액이 아님",
+  "image": {
+    "provider": "openai",
+    "model": "gpt-image-2",
+    "size": "1536x864",
+    "quality": "low",
+    "format": "jpeg",
+    "server_responded": true,
+    "request_accepted": true,
+    "result_valid": true,
+    "http_status": 200,
+    "status": "이미지 수신·검증 성공",
+    "latency_ms": 13912.0,
+    "returned_size": "1536x864",
+    "mime": "image/jpeg",
+    "bytes": 104680,
+    "input_tokens": 135,
+    "output_tokens": 120,
+    "cost_estimate_usd": 0.004275,
+    "file": "eval/results/provider_check_20261105_143235/image_low_143249.jpg"
+  }
+}

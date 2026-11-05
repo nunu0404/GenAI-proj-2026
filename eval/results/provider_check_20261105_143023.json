@@ -1,0 +1,17 @@
+{
+  "created": "2026-11-05T14:30:23",
+  "note": "비용은 응답 사용량 × 환경변수 단가로 계산한 추정치이며 실제 청구액이 아님",
+  "stt": {
+    "provider": "gemini",
+    "model": "gemini-3.5-transcribe-live",
+    "sample_rate": 16000,
+    "server_responded": true,
+    "request_accepted": false,
+    "result_valid": null,
+    "stage": "rejected",
+    "http_status": null,
+    "effective_session": null,
+    "session_check": {},
+    "status": "연결/설정 실패 [rejected]: STT 서버가 설정 완료 전에 연결을 닫았습니다 (code 1011: Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billi)"
+  }
+}
