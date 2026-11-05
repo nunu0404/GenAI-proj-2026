@@ -37,6 +37,9 @@ export function Presenter({ sid }: { sid: string }) {
   });
   const [toast, setToast] = useState<string | null>(null);
   const presentModeRef = useRef(false);
+  // 작업 단계가 처음 관찰된 브라우저 시각 (서버 시계와 섞지 않음)
+  const stageSeen = useRef(new Map<string, number>());
+  const [, setNowTick] = useState(0);
   const toggleMicRef = useRef<() => void>(() => undefined);
   const presentRef = useRef<HTMLDivElement>(null);
 
@@ -50,6 +53,8 @@ export function Presenter({ sid }: { sid: string }) {
   const canPrev = readyIdx > 0;
   const canNext = readyIdx >= 0 && readyIdx < readySlides.length - 1;
   const jobById = useMemo(() => new Map(jobs.map((j) => [j.id, j])), [jobs]);
+  const activeJobs = jobs.filter((j) => ACTIVE.has(j.status)).sort((a, b) => a.created_at - b.created_at);
+  const runningJob = activeJobs.find((j) => j.status !== "queued") ?? activeJobs[0];
   const anyMock = !!config && (config.mock.stt || config.mock.text || config.mock.image);
 
   // ------------------------------------------------ 이동
@@ -123,6 +128,11 @@ export function Presenter({ sid }: { sid: string }) {
     );
     if (wantMic && permission === "granted") void startMicClick();
   };
+  useEffect(() => {
+    if (!presentMode || !runningJob) return;
+    const t = window.setInterval(() => setNowTick((x) => x + 1), 1000);
+    return () => window.clearInterval(t);
+  }, [presentMode, runningJob?.id]);
   const showToast = useCallback((text: string, ms = 3000) => {
     setToast(text);
     window.setTimeout(() => setToast((t) => (t === text ? null : t)), ms);
@@ -151,6 +161,10 @@ export function Presenter({ sid }: { sid: string }) {
         if (m.type === "job.updated" && m.data.status === "ready" && m.data.slide_id) {
           pendingRender.current.set(m.data.slide_id, { t0: performance.now(), jobId: m.data.id });
           if (presentModeRef.current) showToast("다음 장 준비됨 — → 키로 넘기기");
+        }
+        if (m.type === "job.updated" && presentModeRef.current) {
+          if (m.data.status === "failed") showToast(`다음 장 생성 실패 — ${m.data.error_message ?? "Esc 후 재시도"}`, 8000);
+          if (m.data.status === "needs_input") showToast("주제 확인이 필요한 요청이 있습니다 — Esc 후 입력해 주세요", 8000);
         }
       }),
     [subscribe, showToast],
@@ -490,6 +504,7 @@ export function Presenter({ sid }: { sid: string }) {
           <SlideFrame slide={current} />
           {/* 청중도 볼 수 있는 화면이므로 상태 표시는 작고 흐리게 */}
           <div className={`present-mic mic-${!micOn ? (micStarting ? "connecting" : "off") : state.stt.state === "error" ? "error" : state.stt.state === "connecting" || state.stt.state === "reconnecting" ? "connecting" : state.vadSpeaking ? "speaking" : "listening"}`} title="마이크 상태 (M 키로 켜기/끄기)" />
+          {runningJob && <GenStatus job={runningJob} queued={activeJobs.length - 1} seen={stageSeen.current} />}
           {(toast || (micErr && micOn)) && <div className={`present-toast ${micErr && micOn ? "err" : ""}`}>{micErr && micOn ? micErr : toast}</div>}
           <div className="present-ctrl">
             <button onClick={() => go("prev")} disabled={!canPrev}>◀</button>
@@ -498,7 +513,6 @@ export function Presenter({ sid }: { sid: string }) {
             <button onClick={toggleMic} disabled={micStarting} title="M 키">
               {micStarting ? "마이크 준비 중…" : micOn ? "■ 마이크 끄기" : "● 마이크 켜기"}
             </button>
-            {nextSlide && nextSlide.status !== "ready" && <span className="chip st-generating_image">다음 장 {STATUS_LABEL[nextSlide.status]}</span>}
             {!micOn && micErr && <span className="present-err">{micErr}</span>}
             <span className="present-hint">M 마이크 · F 전체 화면 · Esc 나가기</span>
             <button onClick={exitPresent}>나가기</button>
@@ -528,6 +542,27 @@ function LevelMeter({ level, sttReady }: { level: { rms: number; threshold: numb
       </div>
       {sttReady && stale && <div className="warn-text">서버로 마이크 오디오가 도착하지 않고 있습니다. 마이크 장치·권한을 확인하거나 마이크를 다시 시작해 주세요.</div>}
       {quiet && <div className="warn-text">입력 음량이 음성 판정 기준보다 작습니다. 마이크에 가까이 말하거나 입력 장치·음량을 확인해 주세요.</div>}
+    </div>
+  );
+}
+
+const GEN_LABEL: Record<string, string> = {
+  queued: "다음 장 요청 대기 중",
+  planning: "다음 장 기획 중",
+  text_ready: "다음 장 준비 중",
+  generating_image: "다음 장 이미지 생성 중",
+};
+
+/** 전체 화면 발표 중 생성 진행 상태 (작고 흐리게). 경과 시간은 이 단계가 처음 보인 브라우저 시각 기준. */
+function GenStatus({ job, queued, seen }: { job: Job; queued: number; seen: Map<string, number> }) {
+  const key = `${job.id}:${job.status}`;
+  if (!seen.has(key)) seen.set(key, performance.now());
+  const sec = Math.floor((performance.now() - (seen.get(key) ?? performance.now())) / 1000);
+  return (
+    <div className="present-gen" role="status" aria-live="polite">
+      <span className="gen-spin" aria-hidden />
+      {GEN_LABEL[job.status] ?? "다음 장 생성 중"}…{job.status !== "queued" && sec >= 1 ? ` ${sec}초` : ""}
+      {queued > 0 && <span className="gen-q"> · 대기 {queued}</span>}
     </div>
   );
 }
