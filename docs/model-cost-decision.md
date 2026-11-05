@@ -25,7 +25,7 @@
 | 언어·지연 | `languages` 배열(단수 `language`와 함께 보내지 말 것), `delay` (`minimal`~`xhigh`) | `languages: ["ko"]`, `delay: "low"`. 단수 `language`는 보내지 않음(테스트로 확인) |
 | 턴 감지 | `server_vad`, `semantic_vad` **미지원**. `turn_detection`은 생략하거나 `null` | `turn_detection: null` 고정. 서버가 돌려준 실제 설정에 턴 감지가 켜져 있으면 실패로 처리 |
 | 발화 종료 | 클라이언트 측 VAD로 발화 끝을 감지해 `input_audio_buffer.commit` | 서버의 20ms RMS VAD. 유성 누적이 `VAD_MIN_SPEECH_MS` 이상일 때만 STT로 전송, 침묵 `VAD_SILENCE_MS` 후 commit |
-| 설정 승인 | `session.update`가 적용되면 서버가 실제 반영된 설정을 담아 `session.updated`를 보냄 | **`session.updated` 수신 후에만 ready**. `error`를 받으면 “설정 거부”, `STT_SESSION_ACK_TIMEOUT_S` 초과 시 실패 상태 |
+| 설정 승인 | `session.update`가 적용되면 서버가 실제 반영된 설정을 담아 `session.updated`를 보냄 | **`session.updated` 수신 후, 실제 설정이 맞는지 검증까지 끝나야 ready**. 검증 항목: `session.type`=transcription, 전사 모델, `format.type`=audio/pcm, `format.rate`=24000, turn_detection(값이 있으면 null이어야 함). 값이 다르면 `mismatch`. 항목이 없으면 `unverifiable`로 실패(`STT_STRICT_SESSION_CHECK=false`면 '미검증 항목' 경고를 띄우고 진행). `error`는 `rejected`, 승인 시간 초과는 `ack_timeout` |
 | 결과 순서 | 구간 간 완료 순서는 보장되지 않음, `item_id`로 매칭 | `committed(item_id)` ↔ VAD 구간 매핑 후 **commit 순서대로 재정렬**해 감지기에 전달 |
 
 문서에 없어서 확인하지 못한 것:
@@ -47,6 +47,7 @@
    - 리뷰의 재현 사례(“과적합을 설명하겠습니다.”가 “다음 슬라이드에서는”보다 먼저 도착)는 테스트 `test_out_of_order_finals_are_delivered_in_commit_order`로 넣었습니다. 이 사례에서 정상 생성되고, 앞선 설명도 맥락에 포함됩니다.
 2. **최소 발화 길이.** 유성 프레임이 시작되면 오디오를 서버에 보관만 합니다. 유성 누적이 250ms 이상이 되어야 보관분(프리롤 포함)을 STT로 보내고, 그 전에 침묵이 이어지면 버립니다. 리뷰의 재현(20ms 큰 잡음 + 700ms 침묵)에서 전송량 0바이트, commit 0회를 확인했습니다(`test_short_noise_is_not_sent_or_committed`).
 3. **설정 승인 전 ‘연결됨’ 표시.** `session.updated`를 받기 전에는 `connecting`으로 둡니다. 거부나 시간 초과는 `error` 상태와 사유를 화면에 표시합니다. 승인 뒤 서버 오류는 `degraded` 상태로 표시합니다.
+   - 2차 리뷰 반영: 처음 구현은 항목이 없으면 검증을 건너뛰었습니다. 그래서 빈 응답 `{}`나 `audio/pcmu` 형식도 통과했습니다. 이제 위 표의 필수 항목을 모두 확인합니다(새 테스트 4개는 이전 코드에서 실패).
 
 이 수정을 검증하는 새 테스트 6개는 **이전 코드(e10b3dd)에서 5개가 실패하고 수정 후 모두 통과**합니다.
 
@@ -74,7 +75,7 @@
 - 문서([Image generation](https://developers.openai.com/api/docs/guides/image-generation))에 “`gpt-image-2`는 두 변이 16px 배수이고 총 픽셀이 655,360~8,294,400인 어떤 해상도든 받는다”고 명시되어 있습니다. 1536x864(1,327,104픽셀, 16:9)는 조건을 만족합니다. 실제 계정에서 받아들여지는지는 **미검증**입니다.
 - 요청 설정은 모두 명시합니다: `size=1536x864`, `quality=low`(임시), `output_format=jpeg`, `n=1`.
   - 문서는 “빠른 초안에는 `quality: "low"`”, “지연이 중요하면 png보다 빠른 jpeg”를 권합니다.
-- 문서의 장당 출력 비용표(gpt-image-2): 1536x1024는 low $0.005, medium $0.041, high $0.165이고, 1024x1024는 low $0.006, medium $0.053입니다. 1536x864는 표에 없습니다. 픽셀 수가 1536x1024보다 적으므로 그 이하일 것으로 보지만 **추정**입니다. 실제 값은 응답의 `usage` 토큰으로 기록합니다.
+- 문서의 장당 출력 비용표(gpt-image-2): 1536x1024는 low $0.005, medium $0.041, high $0.165이고, 1024x1024는 low $0.006, medium $0.053입니다. **1536x864는 표에 없습니다.** 다른 해상도의 가격에서 픽셀 수로 환산하는 방식은 상한을 보장하지 않으므로 쓰지 않습니다. 실제 비용은 응답의 `usage` 토큰 × 단가로만 판단하고, 그 값을 작업마다 기록합니다.
 - **실제 생성 시간과 사용량 기록**: 작업마다 `jobs.metrics`에 다음을 저장하고, 호출마다 `usage_log`에도 남깁니다. 아직 실제 호출이 없어 **측정값은 없습니다**.
   - `image_ms`(생성 소요)
   - `image_settings`(크기, 품질, 형식)
@@ -97,14 +98,14 @@
 - 이 Claude Code 세션의 사용량은 앱의 API 과금과 무관합니다.
 - 현재 구성은 OpenAI와 Anthropic, **두 회사의 API 계정이 모두 필요합니다.** 계정을 하나로 줄이려면 OpenAI 텍스트 모델 어댑터를 추가하면 됩니다. 후보는 공식 가격표 기준 `gpt-6-luna` $0.10/$0.50, `gpt-5-nano` $0.05/$0.40입니다. 아직 구현하지 않았습니다.
 
-**예상 비용** (추정치이며 실제 청구액이 아닙니다. 50분 강의, 생성 10장 기준):
+**예산 가정** (실측이 아니며 확정 비용이 아닙니다. 예산을 잡기 위한 가정이고, 50분 강의와 생성 10장을 기준으로 합니다):
 
 | 항목 | 계산 | 추정 |
 |---|---|---|
 | 음성 인식 | $0.017/분 × 실제 전송한 발화 오디오 약 35~50분. 침묵과 잡음은 보내지 않음 | $0.60~0.85 |
 | 슬라이드 기획 (Haiku) | 10장 × 약 $0.0007 | 약 $0.01 (Opus라면 약 $0.30) |
-| 이미지 (low) | 10장 × 약 $0.005 + 프롬프트 입력 | 약 $0.06 (medium이면 약 $0.42) |
-| **합계** | | **약 $0.7~0.9** (이미지 medium이면 약 $1.1~1.3) |
+| 이미지 (low) | 10장 × **가정값** $0.005. 1536x864 가격은 미확인이므로 1536x1024 표 가격을 대용으로 씀. 상한 아님 | 약 $0.06 (medium 가정 시 약 $0.42) |
+| **합계 (가정)** | | **약 $0.7~0.9** (이미지 medium 가정 시 약 $1.1~1.3). 실제 값은 `check_providers.py`와 `latency_probe.py`의 usage 기록으로 대체할 것 |
 
 STT 과금이 전송한 오디오 길이 기준인지 연결 시간 기준인지는 가격표에 “분당”으로만 나와 있어 **미확인**입니다.
 
@@ -115,10 +116,18 @@ STT 과금이 전송한 오디오 길이 기준인지 연결 시간 기준인지
 | STT `gpt-live-transcribe` | ✅ 모델 목록·전사 가이드·가격표 | ❌ 미검증 (키 없음) | ❌ 미검증 | ❌ 미검증 |
 | 텍스트 `claude-haiku-5-5` | ✅ Anthropic 가격표·모델 문서 | ❌ 미검증 | ❌ 미검증 | ❌ 미검증 |
 | 이미지 `gpt-image-2` | ✅ 가격표·모델 페이지·가이드 | ❌ 미검증 (조직 인증 필요 여부 포함) | ❌ 미검증 | ❌ 미검증 |
-| mock 구성 전체 흐름 | – | – | – | ✅ 자동 테스트 59개, 헤드리스 Chrome E2E |
+| mock 구성 전체 흐름 | – | – | – | ✅ 자동 테스트 65개, 헤드리스 Chrome E2E |
 | 어댑터 요청 형식 | – | – | 로컬 가짜 서버 계약 테스트만 | – |
 
 ### 실제 연결을 단계별로 확인하는 방법
+
+`check_providers.py`는 제공자별로 다음 세 단계를 **따로** 기록합니다.
+
+- `server_responded`: 서버 응답을 받았는가
+- `request_accepted`: 요청이 정상적으로 받아들여졌는가 (HTTP 2xx, STT는 승인과 설정 검증 통과)
+- `result_valid`: 유효한 결과를 받았는가
+
+한도 초과(429), 잘못된 요청(400), 서버 오류(5xx)는 '응답 O, 수락 X'로 기록합니다. HTTP 200이어도 이미지가 없거나 형식이 잘못됐으면 '수락 O, 결과 X'로 기록합니다. 이 분류는 테스트로 고정했습니다(`test_check_image_does_not_report_errors_as_success`).
 
 ```bash
 backend/.venv/bin/python eval/check_providers.py --stt                      # 연결과 설정 승인만 (오디오 미전송)

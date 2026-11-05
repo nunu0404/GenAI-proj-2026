@@ -26,5 +26,5 @@ def make_stt_provider(s: Settings) -> SttProvider:
         from .openai_stt import OpenAISttProvider
         langs = [x.strip() for x in s.stt_languages.split(",") if x.strip()]
         return OpenAISttProvider(s.openai_stt_model, langs, s.stt_delay, s.stt_sample_rate, s.stt_max_reconnects,
-                                 s.stt_session_ack_timeout_s)
+                                 s.stt_session_ack_timeout_s, s.stt_strict_session_check)
     return MockSttProvider(sample_rate=s.stt_sample_rate)

@@ -50,6 +50,8 @@ class Settings:
     stt_result_timeout_ms: int = field(default_factory=lambda: int(_env("STT_RESULT_TIMEOUT_MS", "10000")))
     # session.update 후 서버의 session.updated(설정 승인)를 기다리는 시간
     stt_session_ack_timeout_s: float = field(default_factory=lambda: float(_env("STT_SESSION_ACK_TIMEOUT_S", "10")))
+    # 승인 응답(session.updated)에 필수 확인 항목이 없을 때: true=검증 불가로 실패, false=경고와 함께 진행
+    stt_strict_session_check: bool = field(default_factory=lambda: _env("STT_STRICT_SESSION_CHECK", "true").lower() == "true")
 
     # --- 텍스트(슬라이드 기획) --- 기본값은 임시 설정(실측 후 결정). 실시간·저비용 우선으로 Haiku 5.5.
     anthropic_text_model: str = field(default_factory=lambda: _env("ANTHROPIC_TEXT_MODEL", "claude-haiku-5-5"))

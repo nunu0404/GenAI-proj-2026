@@ -360,3 +360,122 @@ def test_request_options_reject_invalid_combinations():
     assert request_options("claude-haiku-5-5", "xhigh", "disabled", True) == {"fallbacks": False, "thinking": None}
     assert request_options("claude-haiku-5-5", "low", "disabled", False)["thinking"] == {"type": "disabled"}
     assert request_options("claude-sonnet-5-5", "low", "", True)["fallbacks"] is True
+
+
+# ------------------------------------------------------------------ 승인 응답의 실제 설정 검증 (리뷰 2차 지적)
+
+
+async def _start_with_ack_session(monkeypatch, session_payload, strict=True):
+    async def handler(ws):
+        async for raw in ws:
+            if json.loads(raw)["type"] == "session.update":
+                await ws.send(json.dumps({"type": "session.updated", "session": session_payload}))
+
+    server, port = await _start_fake(handler)
+    events = []
+
+    async def on_event(ev):
+        events.append(ev)
+
+    p = _provider(monkeypatch, port)
+    p.strict_session_check = strict
+    try:
+        await p.start(on_event)
+        return p, events, None
+    except openai_stt.SttSessionError as e:
+        return p, events, e
+    finally:
+        server.close()
+
+
+def _good_session():
+    return {"type": "transcription", "audio": {"input": {
+        "format": {"type": "audio/pcm", "rate": 24000},
+        "transcription": {"model": "gpt-live-transcribe", "languages": ["ko"]}, "turn_detection": None}}}
+
+
+@pytest.mark.asyncio
+async def test_empty_ack_session_is_unverifiable(monkeypatch):
+    p, events, err = await _start_with_ack_session(monkeypatch, {})
+    assert err is not None and err.stage == "unverifiable" and err.server_responded is True
+    assert set(p.session_check["missing"]) == {"session.type", "audio.input.transcription.model",
+                                               "audio.input.format.type", "audio.input.format.rate"}
+    assert "ready" not in [e.state for e in events if e.type == "status"]
+
+
+@pytest.mark.asyncio
+async def test_pcmu_format_in_ack_is_mismatch(monkeypatch):
+    sess = _good_session()
+    sess["audio"]["input"]["format"] = {"type": "audio/pcmu"}
+    p, events, err = await _start_with_ack_session(monkeypatch, sess)
+    assert err is not None and err.stage == "mismatch" and "audio/pcmu" in str(err)
+
+
+@pytest.mark.asyncio
+async def test_wrong_session_type_or_model_is_mismatch(monkeypatch):
+    sess = _good_session()
+    sess["type"] = "realtime"
+    sess["audio"]["input"]["transcription"]["model"] = "gpt-transcribe"
+    _, _, err = await _start_with_ack_session(monkeypatch, sess)
+    assert err is not None and err.stage == "mismatch"
+    assert "session.type" in str(err) and "gpt-transcribe" in str(err)
+
+
+@pytest.mark.asyncio
+async def test_full_ack_is_verified_and_non_strict_missing_warns(monkeypatch):
+    p, events, err = await _start_with_ack_session(monkeypatch, _good_session())
+    assert err is None and len(p.session_check["verified"]) == 5 and not p.session_check["missing"]
+    await p.close()
+    sess = _good_session()
+    del sess["audio"]["input"]["format"]["rate"]
+    p, events, err = await _start_with_ack_session(monkeypatch, sess, strict=False)
+    assert err is None
+    ready = [e for e in events if e.type == "status" and e.state == "ready"][-1]
+    assert "미검증 항목" in ready.message and "audio.input.format.rate" in ready.message
+    await p.close()
+
+
+# ------------------------------------------------------------------ 점검 스크립트의 단계 구분 (리뷰 2차 지적)
+
+
+def _load_check_providers():
+    import importlib.util
+    from pathlib import Path
+    path = Path(__file__).resolve().parents[2] / "eval" / "check_providers.py"
+    spec = importlib.util.spec_from_file_location("check_providers", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_outcome_levels():
+    cp = _load_check_providers()
+    assert cp.outcome(None, False) == {"server_responded": False, "request_accepted": False, "result_valid": False,
+                                       "http_status": None}
+    assert cp.outcome(429, False)["server_responded"] and not cp.outcome(429, False)["request_accepted"]
+    assert cp.outcome(200, False) == {"server_responded": True, "request_accepted": True, "result_valid": False,
+                                      "http_status": 200}
+
+
+@pytest.mark.asyncio
+async def test_check_image_does_not_report_errors_as_success(stub, monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-fake")
+    monkeypatch.setenv("OPENAI_BASE_URL", f"http://127.0.0.1:{stub.port}/v1")
+    cp = _load_check_providers()
+    from app.config import Settings
+    s = Settings()
+    s.image_provider, s.openai_image_model, s.image_size, s.image_format = "openai", "gpt-image-2", "1536x864", "png"
+    cases = [
+        (429, {"error": {"message": "rate limit", "type": "requests", "code": "rate_limit_exceeded"}}, (True, False, False)),
+        (400, {"error": {"message": "Invalid size", "type": "invalid_request_error", "code": "invalid_value"}}, (True, False, False)),
+        (503, {"error": {"message": "unavailable", "type": "server_error"}}, (True, False, False)),
+        (200, {"created": 1, "data": []}, (True, True, False)),
+        (200, {"created": 1, "data": [{"b64_json": base64.b64encode(render_mock_png("a", "1536x864")).decode()}],
+               "usage": {"input_tokens": 50, "output_tokens": 3000, "total_tokens": 3050}}, (True, True, True)),
+    ]
+    for code, body, want in cases:
+        stub.responses.append((code, body))
+        r = await cp.check_image(s, tmp_path)
+        got = (r["server_responded"], r["request_accepted"], r["result_valid"])
+        assert got == want, (code, body, r["status"])
+        assert r["http_status"] == code

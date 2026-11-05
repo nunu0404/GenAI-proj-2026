@@ -1,10 +1,12 @@
 """실제 제공자 단계별 점검 — 전사만 / 기획만 / 이미지만 따로 실행해 결과를 단계별로 구분해 기록한다.
 
-단계(각 제공자별):
-  1. 모델명 문서 확인   : 공식 문서에 있는 이름인지 (사람이 확인, 이 스크립트는 기록만)
-  2. 계정 권한·호출 성공 : 실제 API 가 요청을 받아들였는지 (STT 는 session.updated 승인 수신)
-  3. 결과 수신         : 전사 텍스트 / 유효한 슬라이드 JSON / 유효한 이미지
-  4. 측정             : 소요 시간, 토큰 사용량, 추정 비용(실제 청구액 아님)
+각 제공자별로 아래를 '따로' 기록한다 (하나라도 None 이면 시도하지 않았거나 판단할 수 없음):
+  server_responded : 서버로부터 응답을 받았는가 (HTTP 응답 / WebSocket 핸드셰이크 성공)
+  request_accepted : 요청이 정상적으로 받아들여졌는가 (HTTP 2xx / STT 는 session.updated 승인 + 실제 설정 검증 통과)
+  result_valid     : 유효한 결과를 받았는가 (전사 텍스트 / 스키마 검증된 슬라이드 JSON / 검증된 이미지)
+  + 소요 시간, 토큰 사용량, 추정 비용(응답 사용량 × 단가, 실제 청구액 아님)
+예) 한도 초과(429)·잘못된 요청(400)·서버 오류(5xx) → 응답 O, 수락 X
+    HTTP 200 이지만 모델 거절·이미지 없음·스키마 불일치 → 응답 O, 수락 O, 결과 X
 
 사용 예 (backend/.env 에 키 설정 필요, 호출마다 비용 발생):
   backend/.venv/bin/python eval/check_providers.py --stt                     # 연결·설정 승인만 (오디오 미전송)
@@ -32,13 +34,20 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from app.config import Settings  # noqa: E402
 from app.metrics import estimate_cost  # noqa: E402
-from app.planner import compose_image_prompt, plan_slide  # noqa: E402
+from app.planner import PlanError, compose_image_prompt, plan_slide  # noqa: E402
 from app.providers.base import ProviderError, SttEvent  # noqa: E402
 
 CTX = {"lecture_title": "머신러닝 기초", "audience": "대학 신입생",
        "transcript": "과적합은 학습 데이터에 지나치게 맞춰져서 새로운 데이터에는 잘 대응하지 못하는 현상입니다.",
        "current_slide": {"title": "과적합이란?", "bullets": ["학습 데이터에만 맞춘 모델", "새 데이터에서 성능 저하"]}}
 REQ = "다음 슬라이드에서는 과적합을 시험 문제를 외운 학생에 비유해서 설명하겠습니다."
+
+
+def outcome(http_status: int | None, result_valid: bool | None) -> dict:
+    """HTTP 상태와 결과 유효성으로 세 단계를 분리해 기록한다."""
+    responded = http_status is not None
+    return {"server_responded": responded, "request_accepted": responded and 200 <= http_status < 300,
+            "result_valid": result_valid, "http_status": http_status}
 
 
 def load_wav_24k(path: str) -> bytes:
@@ -56,7 +65,8 @@ def load_wav_24k(path: str) -> bytes:
 
 
 async def check_stt(s: Settings, wav: str | None) -> dict:
-    r: dict = {"provider": "openai", "model": s.openai_stt_model, "account_call_ok": None, "result_ok": None}
+    r: dict = {"provider": "openai", "model": s.openai_stt_model, "server_responded": None, "request_accepted": None,
+               "result_valid": None}
     if not os.environ.get("OPENAI_API_KEY"):
         return {**r, "status": "미검증 (OPENAI_API_KEY 없음)"}
     from app.providers.openai_stt import OpenAISttProvider, SttSessionError
@@ -66,14 +76,16 @@ async def check_stt(s: Settings, wav: str | None) -> dict:
         events.append(ev)
 
     p = OpenAISttProvider(s.openai_stt_model, [x.strip() for x in s.stt_languages.split(",")], s.stt_delay,
-                          s.stt_sample_rate, 0, s.stt_session_ack_timeout_s)
+                          s.stt_sample_rate, 0, s.stt_session_ack_timeout_s, s.stt_strict_session_check)
     t0 = time.monotonic()
     try:
         await p.start(on)
     except SttSessionError as e:
-        return {**r, "account_call_ok": False, "status": f"연결/설정 실패: {e}"}
-    r.update(account_call_ok=True, ack_ms=round((time.monotonic() - t0) * 1000, 1),
-             effective_session=p.effective_session)
+        return {**r, "server_responded": e.server_responded, "request_accepted": False, "stage": e.stage,
+                "http_status": e.http_status, "effective_session": p.effective_session,
+                "session_check": p.session_check, "status": f"연결/설정 실패 [{e.stage}]: {e}"}
+    r.update(server_responded=True, request_accepted=True, ack_ms=round((time.monotonic() - t0) * 1000, 1),
+             effective_session=p.effective_session, session_check=p.session_check)
     if wav:
         pcm = load_wav_24k(wav)
         step = 2400 * 2
@@ -85,13 +97,13 @@ async def check_stt(s: Settings, wav: str | None) -> dict:
         while time.monotonic() - t_commit < 20 and not any(e.type in ("final", "segment_failed") for e in events):
             await asyncio.sleep(0.05)
         fin = next((e for e in events if e.type == "final"), None)
-        r.update(audio_seconds=round(len(pcm) / 2 / 24000, 2), result_ok=bool(fin and fin.text),
+        r.update(audio_seconds=round(len(pcm) / 2 / 24000, 2), result_valid=bool(fin and fin.text),
                  transcript=fin.text if fin else None,
                  commit_to_final_ms=round((time.monotonic() - t_commit) * 1000, 1) if fin else None,
                  partial_count=sum(1 for e in events if e.type == "partial"),
                  cost_estimate_usd=(len(pcm) / 2 / 24000 / 60 * s.price_stt_per_min) if s.price_stt_per_min else None)
     await p.close()
-    r["status"] = "전사 수신 성공" if r["result_ok"] else ("설정 승인 성공 (오디오 미전송)" if not wav else "전사 결과 없음")
+    r["status"] = "전사 수신 성공" if r["result_valid"] else ("설정 승인·검증 성공 (오디오 미전송)" if not wav else "전사 결과 없음")
     return r
 
 
@@ -105,10 +117,13 @@ async def check_text(s: Settings) -> dict:
     t0 = time.monotonic()
     try:
         res = await plan_slide(p, CTX, REQ, s.text_max_repair)
-    except Exception as e:  # noqa: BLE001
-        return {**r, "account_call_ok": False, "status": f"실패: {getattr(e, 'code', '')} {getattr(e, 'message', e)}"}
+    except PlanError as e:
+        return {**r, **outcome(e.http_status, False), "error_code": e.code,
+                "latency_ms": round((time.monotonic() - t0) * 1000, 1),
+                "input_tokens": sum(u.input_tokens or 0 for u in e.usages),
+                "output_tokens": sum(u.output_tokens or 0 for u in e.usages), "status": f"실패: {e.code} {e.message}"}
     costs = [estimate_cost(s, u) for u in res.usages]
-    return {**r, "account_call_ok": True, "result_ok": True, "status": "구조화 슬라이드 수신 성공",
+    return {**r, **outcome(200, True), "status": "구조화 슬라이드 수신·검증 성공",
             "latency_ms": round((time.monotonic() - t0) * 1000, 1), "repairs": res.repairs,
             "served_model": res.usages[-1].model, "request_settings": res.usages[-1].settings,
             "input_tokens": sum(u.input_tokens or 0 for u in res.usages),
@@ -130,16 +145,18 @@ async def check_image(s: Settings, out_dir: Path) -> dict:
         img = await p.generate(compose_image_prompt(
             "A student confidently answering a worksheet they memorized, then puzzled in front of a new, unfamiliar exam sheet"))
     except ProviderError as e:
-        return {**r, "account_call_ok": e.code not in ("auth", "network"), "result_ok": False,
-                "status": f"실패: {e.code} {e.message}"}
+        return {**r, **outcome(e.http_status, False), "error_code": e.code,
+                "latency_ms": round((time.monotonic() - t0) * 1000, 1),
+                "input_tokens": e.usage.input_tokens if e.usage else None,
+                "output_tokens": e.usage.output_tokens if e.usage else None, "status": f"실패: {e.code} {e.message}"}
     out_dir.mkdir(parents=True, exist_ok=True)
     f = out_dir / f"image_{s.image_quality}_{datetime.now():%H%M%S}.{img.mime.split('/')[1].replace('jpeg', 'jpg')}"
     f.write_bytes(img.data)
-    return {**r, "account_call_ok": True, "result_ok": True, "status": "이미지 수신·검증 성공",
+    return {**r, **outcome(200, True), "status": "이미지 수신·검증 성공",
             "latency_ms": round((time.monotonic() - t0) * 1000, 1), "returned_size": f"{img.width}x{img.height}",
             "mime": img.mime, "bytes": len(img.data), "input_tokens": img.usage.input_tokens,
             "output_tokens": img.usage.output_tokens, "cost_estimate_usd": estimate_cost(s, img.usage),
-            "file": str(f.relative_to(ROOT))}
+            "file": str(f.relative_to(ROOT)) if ROOT in f.resolve().parents else str(f)}
 
 
 async def main() -> None:
@@ -167,10 +184,11 @@ async def main() -> None:
     for k in ("stt", "text", "image"):
         if k in report:
             v = report[k]
-            print(f"[{k}] {v.get('model')}: {v['status']} | 호출 성공={v.get('account_call_ok')} 결과={v.get('result_ok')} "
+            print(f"[{k}] {v.get('model')}: {v['status']} | 서버 응답={v.get('server_responded')} "
+                  f"요청 수락={v.get('request_accepted')} 결과 유효={v.get('result_valid')} HTTP={v.get('http_status')} "
                   f"| 지연={v.get('latency_ms') or v.get('commit_to_final_ms') or v.get('ack_ms')}ms "
                   f"| 토큰 in/out={v.get('input_tokens')}/{v.get('output_tokens')} | 비용≈{v.get('cost_estimate_usd')}")
-    ran_real = any(report[k].get("account_call_ok") is not None for k in ("stt", "text", "image") if k in report)
+    ran_real = any(report[k].get("server_responded") is not None for k in ("stt", "text", "image") if k in report)
     if ran_real:
         out = ROOT / "eval" / "results" / f"provider_check_{ts:%Y%m%d_%H%M%S}.json"
         out.write_text(json.dumps(report, ensure_ascii=False, indent=2))

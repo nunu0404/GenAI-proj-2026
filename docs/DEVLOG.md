@@ -87,3 +87,37 @@
 2. `--text`, `--image --quality low`/`medium` 각 1회
 3. `latency_probe.py -n 5`로 기획, 이미지, 총 대기 시간, 비용 기록
 4. 그 결과로 텍스트 모델(Haiku 유지 여부)과 이미지 품질 확정
+
+---
+
+## 2026-11-05 (3) — 2차 리뷰 반영: STT 승인 설정 엄격 검증, 점검 결과 단계 분리, 비용 표현 정정
+
+**계기**
+2차 리뷰(893ed3f 기준)에서 두 가지가 지적됐습니다.
+- 승인 응답에 항목이 없으면 검증을 건너뛰어서, 빈 응답 `{}`나 `audio/pcmu` 형식도 통과했습니다.
+- `check_providers.py`가 429/400/5xx를 '호출 성공'으로 기록할 수 있었습니다.
+
+비용 수치는 실측이 아니라 예산 가정으로만 봐야 한다는 지적도 있었습니다.
+
+**변경**
+1. `openai_stt._check_effective`
+   - 필수 항목을 모두 대조합니다: `session.type`=transcription, 전사 모델, `audio.input.format.type`=audio/pcm, `format.rate`=24000. turn_detection은 값이 있으면 null이어야 합니다.
+   - 값이 다르면 `mismatch`로 실패합니다.
+   - 항목이 없으면 `unverifiable`로 실패합니다(`STT_STRICT_SESSION_CHECK=true`가 기본). false로 두면 '미검증 항목' 경고를 띄우고 진행합니다.
+   - `SttSessionError`에 실패 단계를 기록합니다: config / connect_failed / http_rejected / closed_before_ack / ack_timeout / rejected / mismatch / unverifiable.
+2. `ProviderError`와 `PlanError`에 `http_status`를 추가했습니다. 응답을 받지 못했으면 None이고, 200인데 내용이 잘못됐으면 200입니다.
+3. `check_providers.py`는 `server_responded` / `request_accepted` / `result_valid` / `http_status`를 따로 기록합니다. 실패해도 지연과 토큰을 남깁니다.
+4. 문서: 비용을 **예산 가정**으로 정정했습니다. 1536x864 가격을 픽셀 수로 환산하던 문장을 없애고, 실제 비용은 usage × 단가로만 판단한다고 적었습니다.
+5. `docs/real-api-testing.md`(실제 테스트 절차)와 `eval/samples/sample_ko.wav`(macOS 한국어 TTS 합성 음성, 연결 점검용)를 추가했습니다.
+
+**검증**
+- pytest 65개 통과.
+- 리뷰 재현 사례(빈 응답, pcmu, 세션 유형·모델 불일치) 테스트 4개는 이전 코드에서 4개 모두 실패하고 수정 후 통과합니다.
+- 가짜 이미지 서버로 429/400/503/'200인데 이미지 없음'/정상의 단계 기록을 테스트했습니다.
+- 키 없이 `check_providers.py`를 실행하면 모든 단계가 None(미시도)이고 결과 파일을 만들지 않습니다.
+
+**여전히 미검증**
+- 실제 API의 `session.updated` 응답 형식(이 검증 로직이 실제 응답과 맞는지)
+- 실제 호출, 지연, 비용 전부
+
+**다음 할 일**: `docs/real-api-testing.md`의 1-A부터 차례로 진행합니다.

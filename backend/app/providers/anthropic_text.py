@@ -78,13 +78,15 @@ class AnthropicTextProvider:
         except anthropic.APITimeoutError as e:
             raise ProviderError("timeout", "텍스트 생성 시간 초과", retryable=True) from e
         except anthropic.AuthenticationError as e:
-            raise ProviderError("auth", "Anthropic 인증 실패 (ANTHROPIC_API_KEY 확인)") from e
+            raise ProviderError("auth", "Anthropic 인증 실패 (ANTHROPIC_API_KEY 확인)", http_status=e.status_code) from e
         except anthropic.RateLimitError as e:
-            raise ProviderError("rate_limited", "Anthropic 요청 한도 초과", retryable=True) from e
+            raise ProviderError("rate_limited", "Anthropic 요청 한도 초과", retryable=True, http_status=e.status_code) from e
         except anthropic.BadRequestError as e:
-            raise ProviderError("upstream", f"Anthropic 요청 오류: {getattr(e, 'message', str(e))[:200]}") from e
+            raise ProviderError("upstream", f"Anthropic 요청 오류: {getattr(e, 'message', str(e))[:200]}",
+                                http_status=e.status_code) from e
         except anthropic.APIStatusError as e:
-            raise ProviderError("upstream", f"Anthropic 서버 오류 {e.status_code}", retryable=e.status_code >= 500) from e
+            raise ProviderError("upstream", f"Anthropic 서버 오류 {e.status_code}", retryable=e.status_code >= 500,
+                                http_status=e.status_code) from e
         except anthropic.APIConnectionError as e:
             raise ProviderError("network", "Anthropic 연결 실패", retryable=True) from e
 
@@ -94,11 +96,11 @@ class AnthropicTextProvider:
                       settings=settings)
         if resp.stop_reason == "refusal":
             cat = getattr(getattr(resp, "stop_details", None), "category", None)
-            raise ProviderError("refused", f"모델이 요청을 거절했습니다 (category={cat})", usage=usage)
+            raise ProviderError("refused", f"모델이 요청을 거절했습니다 (category={cat})", usage=usage, http_status=200)
         if resp.stop_reason == "max_tokens":
-            raise ProviderError("invalid_output", "출력이 max_tokens 에서 잘렸습니다", retryable=True, usage=usage)
+            raise ProviderError("invalid_output", "출력이 max_tokens 에서 잘렸습니다", retryable=True, usage=usage, http_status=200)
         text = next((b.text for b in resp.content if getattr(b, "type", None) == "text"), None)
         if not text:
-            raise ProviderError("invalid_output", "텍스트 블록이 없습니다", retryable=True, usage=usage)
+            raise ProviderError("invalid_output", "텍스트 블록이 없습니다", retryable=True, usage=usage, http_status=200)
         return TextResult(raw_text=text, usage=usage)
 

@@ -32,7 +32,28 @@ ACK_EVENTS = {"session.updated", "transcription_session.updated"}
 
 
 class SttSessionError(RuntimeError):
-    """설정 거부·승인 시간 초과·인증 실패 등 연결 단계 실패. 메시지는 사용자에게 보여도 되는 내용만 담는다."""
+    """설정 거부·승인 시간 초과·인증 실패 등 연결 단계 실패. 메시지는 사용자에게 보여도 되는 내용만 담는다.
+
+    stage:
+      config          : 시도 전 (키 없음)
+      connect_failed  : 서버 응답 없음 (네트워크·핸드셰이크 시간 초과)
+      http_rejected   : 서버가 WebSocket 핸드셰이크를 HTTP 오류로 거부 (인증·권한 등)
+      closed_before_ack / ack_timeout : 연결은 됐지만 설정 승인을 받지 못함
+      rejected        : 서버가 session.update 를 error 로 거부
+      mismatch        : 승인된 실제 설정이 요청과 다름
+      unverifiable    : 승인 응답에 확인할 필수 항목이 없음 (STT_STRICT_SESSION_CHECK=true 일 때 실패)
+    """
+
+    def __init__(self, message: str, stage: str = "unknown", http_status: Optional[int] = None):
+        super().__init__(message)
+        self.stage = stage
+        self.http_status = http_status
+
+    @property
+    def server_responded(self) -> Optional[bool]:
+        if self.stage == "config":
+            return None
+        return self.stage != "connect_failed"
 
 
 class OpenAISttProvider:
@@ -40,7 +61,7 @@ class OpenAISttProvider:
     is_mock = False
 
     def __init__(self, model: str, languages: list[str], delay: str, sample_rate: int, max_reconnects: int = 3,
-                 ack_timeout_s: float = 10.0):
+                 ack_timeout_s: float = 10.0, strict_session_check: bool = True):
         self.model = model
         self.languages = languages
         self.delay = delay
@@ -61,6 +82,8 @@ class OpenAISttProvider:
         self._send_lock = asyncio.Lock()
         self.audio_seconds_sent = 0.0
         self.effective_session: Optional[dict] = None
+        self.strict_session_check = strict_session_check
+        self.session_check: dict = {}
 
     def _session_update(self) -> dict:
         transcription: dict = {"model": self.model}
@@ -99,7 +122,7 @@ class OpenAISttProvider:
     async def _connect(self) -> None:
         key = os.environ.get("OPENAI_API_KEY")
         if not key:
-            raise SttSessionError("OPENAI_API_KEY 가 설정되지 않았습니다")
+            raise SttSessionError("OPENAI_API_KEY 가 설정되지 않았습니다", "config")
         self._conn_no += 1
         self._ready = False
         await self._emit(SttEvent("status", state="connecting", message="STT 서버 연결 중 (설정 승인 대기)"))
@@ -108,9 +131,10 @@ class OpenAISttProvider:
                                max_size=8 * 1024 * 1024, open_timeout=10)
         except websockets.InvalidStatus as e:
             code = e.response.status_code
-            raise SttSessionError(f"STT 연결 거부 (HTTP {code}{', 인증 실패: API 키 확인' if code in (401, 403) else ''})") from e
+            raise SttSessionError(f"STT 연결 거부 (HTTP {code}{', 인증 실패: API 키 확인' if code in (401, 403) else ''})",
+                                  "http_rejected", code) from e
         except (OSError, asyncio.TimeoutError, websockets.WebSocketException) as e:
-            raise SttSessionError(f"STT 서버에 연결할 수 없습니다 ({type(e).__name__})") from e
+            raise SttSessionError(f"STT 서버에 연결할 수 없습니다 ({type(e).__name__})", "connect_failed") from e
         self._ack = asyncio.get_running_loop().create_future()
         self._ws = ws
         self._reader = asyncio.create_task(self._read_loop(ws, self._conn_no))
@@ -120,30 +144,61 @@ class OpenAISttProvider:
         except asyncio.TimeoutError as e:
             self._ack.cancel()
             await self._abort(ws)
-            raise SttSessionError(f"STT 설정 승인 응답(session.updated)이 {self.ack_timeout_s:.0f}초 안에 오지 않았습니다") from e
+            raise SttSessionError(f"STT 설정 승인 응답(session.updated)이 {self.ack_timeout_s:.0f}초 안에 오지 않았습니다",
+                                  "ack_timeout") from e
         except SttSessionError:
             await self._abort(ws)
             raise
-        problem = self._check_effective(session)
-        if problem:
-            await self._abort(ws)
-            raise SttSessionError(problem)
         self.effective_session = session
+        problems, missing, verified = self._check_effective(session)
+        self.session_check = {"verified": verified, "missing": missing, "problems": problems,
+                              "strict": self.strict_session_check}
+        if problems:
+            await self._abort(ws)
+            raise SttSessionError("STT 승인 설정이 요청과 다릅니다: " + "; ".join(problems), "mismatch")
+        if missing and self.strict_session_check:
+            await self._abort(ws)
+            raise SttSessionError(
+                "STT 승인 응답에서 실제 설정을 확인할 수 없습니다 (누락: " + ", ".join(missing) + "). "
+                "응답 형식을 확인한 뒤에만 STT_STRICT_SESSION_CHECK=false 로 진행하세요", "unverifiable")
         self._ready = True
-        await self._emit(SttEvent("status", state="ready", message=f"STT 설정 승인됨 ({self.model})"))
+        note = f" — 미검증 항목: {', '.join(missing)}" if missing else ""
+        await self._emit(SttEvent("status", state="ready", message=f"STT 설정 승인됨 ({self.model}){note}"))
 
-    def _check_effective(self, session: dict) -> Optional[str]:
-        """서버가 돌려준 실제 반영 설정이 요청과 다르면 문제로 본다(필드가 없으면 판단하지 않음)."""
-        inp = ((session or {}).get("audio") or {}).get("input") or {}
-        model = (inp.get("transcription") or {}).get("model")
-        if model and model != self.model:
-            return f"STT 모델이 요청({self.model})과 다르게 설정됨: {model}"
-        fmt = inp.get("format") or {}
-        if fmt.get("rate") and fmt.get("rate") != self.sample_rate:
-            return f"STT 오디오 샘플레이트가 요청({self.sample_rate})과 다름: {fmt.get('rate')}"
-        if inp.get("turn_detection") not in (None, {}):
-            return "STT 서버가 turn_detection 을 활성화했습니다 (gpt-live-transcribe 는 null 이어야 함)"
-        return None
+    def _check_effective(self, session) -> tuple[list[str], list[str], list[str]]:
+        """session.updated 의 실제 반영 설정을 요청과 대조한다.
+
+        반환: (불일치 목록, 누락 필드 목록, 확인된 필드 목록)
+        필수 확인 항목: session.type / audio.input.transcription.model / audio.input.format.type / .rate
+        turn_detection 은 문서상 '생략 또는 null' 이므로, 값이 있으면서 null 이 아닐 때만 불일치로 본다.
+        """
+        problems: list[str] = []
+        missing: list[str] = []
+        verified: list[str] = []
+        s = session if isinstance(session, dict) else {}
+        audio = s.get("audio") if isinstance(s.get("audio"), dict) else {}
+        inp = audio.get("input") if isinstance(audio.get("input"), dict) else {}
+        tr = inp.get("transcription") if isinstance(inp.get("transcription"), dict) else {}
+        fmt = inp.get("format") if isinstance(inp.get("format"), dict) else {}
+        expected = [
+            ("session.type", s.get("type"), "transcription"),
+            ("audio.input.transcription.model", tr.get("model"), self.model),
+            ("audio.input.format.type", fmt.get("type"), "audio/pcm"),
+            ("audio.input.format.rate", fmt.get("rate"), self.sample_rate),
+        ]
+        for name, actual, want in expected:
+            if actual is None:
+                missing.append(name)
+            elif actual != want:
+                problems.append(f"{name}={actual!r} (요청 {want!r})")
+            else:
+                verified.append(name)
+        if "turn_detection" in inp:
+            if inp["turn_detection"] not in (None, {}):
+                problems.append("audio.input.turn_detection 이 활성화됨 (gpt-live-transcribe 는 null 이어야 함)")
+            else:
+                verified.append("audio.input.turn_detection")
+        return problems, missing, verified
 
     async def _abort(self, ws: ClientConnection) -> None:
         if self._ws is ws:
@@ -193,7 +248,7 @@ class OpenAISttProvider:
         except Exception as e:  # noqa: BLE001
             log.warning("STT read loop error: %s", type(e).__name__)
         if self._ack is not None and not self._ack.done():
-            self._ack.set_exception(SttSessionError("STT 서버가 설정 승인 전에 연결을 닫았습니다"))
+            self._ack.set_exception(SttSessionError("STT 서버가 설정 승인 전에 연결을 닫았습니다", "closed_before_ack"))
             return
         if not self._closing and ws is self._ws and self._ready:
             self._ws = None
@@ -213,7 +268,7 @@ class OpenAISttProvider:
             msg = str(err.get("message") or "STT 오류")[:200]
             code = str(err.get("code") or "")
             if self._ack is not None and not self._ack.done():
-                self._ack.set_exception(SttSessionError(f"STT 설정이 거부되었습니다: {msg}"))
+                self._ack.set_exception(SttSessionError(f"STT 설정이 거부되었습니다: {msg}", "rejected"))
                 return
             if "empty" in code or "buffer too small" in msg.lower():
                 # 오디오가 부족한 commit 거부 → 해당 구간은 결과가 오지 않으므로 실패 처리

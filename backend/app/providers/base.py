@@ -8,12 +8,16 @@ from typing import Any, Awaitable, Callable, Optional, Protocol
 class ProviderError(Exception):
     """code: timeout | rate_limited | refused | no_image | bad_format | invalid_output | auth | network | upstream | config"""
 
-    def __init__(self, code: str, message: str, retryable: bool = False, usage: Optional["Usage"] = None):
+    def __init__(self, code: str, message: str, retryable: bool = False, usage: Optional["Usage"] = None,
+                 http_status: Optional[int] = None):
         super().__init__(message)
         self.code = code
         self.message = message
         self.retryable = retryable
         self.usage = usage
+        # 서버가 HTTP 응답을 돌려줬으면 그 상태 코드(200 응답인데 내용이 잘못된 경우 200).
+        # None = 응답을 받지 못함(연결 실패·시간 초과).
+        self.http_status = http_status
 
 
 @dataclass

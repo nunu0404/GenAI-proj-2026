@@ -62,7 +62,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 ## 테스트와 평가
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q          # 59개: 감지·기획 검증·대기열·취소·복원·API/WS·VAD·전사 순서 보정·제공자 계약
+cd backend && .venv/bin/python -m pytest -q          # 65개: 감지·기획 검증·대기열·취소·복원·API/WS·VAD·전사 순서 보정·STT 설정 검증·제공자 계약
 cd frontend && npm run typecheck && npm run build
 backend/.venv/bin/python eval/run_detection_eval.py   # 요청 감지 정확도 (라벨 40개, API 불필요)
 backend/.venv/bin/python eval/check_providers.py --stt | --text | --image   # 제공자별 실제 연결 점검 (실제 API 필요, 비용 발생)
@@ -98,3 +98,5 @@ docs/              구조·데이터 흐름, 예시 강의 시나리오, 3분 �
 - [docs/demo-script.md](docs/demo-script.md): 3분 발표 시연 대본
 - [docs/results.md](docs/results.md): 실행한 테스트, 실측 수치, 미검증 항목, 알려진 한계와 개선점
 - [docs/DEVLOG.md](docs/DEVLOG.md): 날짜별 변경 사항과 결정, 검증 기록
+- [docs/real-api-testing.md](docs/real-api-testing.md): 실제 API 테스트 절차 (키 설정 → 제공자별 1회 호출 → 실제 마이크 → 5회 측정)
+- [docs/model-cost-decision.md](docs/model-cost-decision.md): 모델 선택 근거, 과금 경로, 예산 가정, 검증 수준

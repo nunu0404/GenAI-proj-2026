@@ -47,16 +47,17 @@ class OpenAIImageProvider:
         except openai.APITimeoutError as e:
             raise ProviderError("timeout", "이미지 생성 시간 초과", retryable=True) from e
         except openai.AuthenticationError as e:
-            raise ProviderError("auth", "OpenAI 인증 실패 (OPENAI_API_KEY 확인)") from e
+            raise ProviderError("auth", "OpenAI 인증 실패 (OPENAI_API_KEY 확인)", http_status=e.status_code) from e
         except openai.RateLimitError as e:
-            raise ProviderError("rate_limited", "OpenAI 요청 한도 초과", retryable=True) from e
+            raise ProviderError("rate_limited", "OpenAI 요청 한도 초과", retryable=True, http_status=e.status_code) from e
         except openai.BadRequestError as e:
             code = getattr(e, "code", None) or ""
             if "moderation" in str(code) or "safety" in str(e).lower():
-                raise ProviderError("refused", "이미지 생성이 안전 정책으로 거절되었습니다") from e
-            raise ProviderError("upstream", f"OpenAI 이미지 요청 오류: {str(e)[:200]}") from e
+                raise ProviderError("refused", "이미지 생성이 안전 정책으로 거절되었습니다", http_status=e.status_code) from e
+            raise ProviderError("upstream", f"OpenAI 이미지 요청 오류: {str(e)[:200]}", http_status=e.status_code) from e
         except openai.APIStatusError as e:
-            raise ProviderError("upstream", f"OpenAI 서버 오류 {e.status_code}", retryable=e.status_code >= 500) from e
+            raise ProviderError("upstream", f"OpenAI 서버 오류 {e.status_code}", retryable=e.status_code >= 500,
+                                http_status=e.status_code) from e
         except openai.APIConnectionError as e:
             raise ProviderError("network", "OpenAI 연결 실패", retryable=True) from e
 
@@ -67,18 +68,19 @@ class OpenAIImageProvider:
             detail={"input_tokens_details": _dump(getattr(u, "input_tokens_details", None))},
         )
         if not resp.data:
-            raise ProviderError("no_image", "응답에 이미지가 없습니다", usage=usage)
+            raise ProviderError("no_image", "응답에 이미지가 없습니다", usage=usage, http_status=200)
         b64 = getattr(resp.data[0], "b64_json", None)
         if not b64:
-            raise ProviderError("no_image", "응답에 b64_json 이미지 데이터가 없습니다", usage=usage)
+            raise ProviderError("no_image", "응답에 b64_json 이미지 데이터가 없습니다", usage=usage, http_status=200)
         try:
             data = base64.b64decode(b64, validate=True)
         except (binascii.Error, ValueError) as e:
-            raise ProviderError("bad_format", "base64 디코딩 실패", usage=usage) from e
+            raise ProviderError("bad_format", "base64 디코딩 실패", usage=usage, http_status=200) from e
         try:
             mime, w, h = validate_image(data, self.max_bytes, self.size)
         except ProviderError as e:
             e.usage = usage
+            e.http_status = 200  # 응답은 정상(200)이었지만 이미지가 유효하지 않음
             raise
         return ImageResult(data=data, mime=mime, width=w, height=h, prompt=prompt, usage=usage)
 

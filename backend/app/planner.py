@@ -76,11 +76,12 @@ class PlanResult:
 
 
 class PlanError(Exception):
-    def __init__(self, code: str, message: str, usages: list[Usage]):
+    def __init__(self, code: str, message: str, usages: list[Usage], http_status: Optional[int] = None):
         super().__init__(message)
         self.code = code
         self.message = message
         self.usages = usages
+        self.http_status = http_status  # 마지막 응답의 HTTP 상태 (None = 응답 없음)
 
 
 def _parse(raw: str) -> tuple[Optional[SlideSpec], Optional[str], list[str]]:
@@ -121,10 +122,11 @@ async def plan_slide(provider: TextProvider, context: dict, request_text: str, m
             if e.code == "invalid_output" and i + 1 < attempts:
                 last_err = e.message
                 continue
-            raise PlanError(e.code, e.message, usages) from e
+            raise PlanError(e.code, e.message, usages, e.http_status) from e
         usages.append(res.usage)
         spec, err, fixes = _parse(res.raw_text)
         if spec is not None:
             return PlanResult(spec=spec, usages=usages, repairs=i, local_fixes=fixes)
         last_err = err or "unknown"
-    raise PlanError("invalid_output", f"구조화 출력 검증 실패({attempts}회 시도): {last_err}", usages)
+    # 마지막 응답은 HTTP 200 으로 받았지만 내용이 스키마 검증을 통과하지 못함
+    raise PlanError("invalid_output", f"구조화 출력 검증 실패({attempts}회 시도): {last_err}", usages, 200)
