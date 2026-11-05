@@ -7,9 +7,13 @@
 
 ## 0. 준비 (1회)
 
-1. **키 발급**
-   - OpenAI API 키: platform.openai.com → API keys. 음성 인식과 이미지에 씁니다. 이미지 모델은 조직 인증이 필요할 수 있습니다.
-   - Anthropic API 키: platform.claude.com(Console) → API keys. 슬라이드 기획에 씁니다.
+1. **키 발급** (현재 구성: 음성 인식은 Gemini, 기획과 이미지는 OpenAI)
+   - OpenAI API 키: platform.openai.com → API keys. 기획과 이미지에 씁니다. 이미지 모델은 조직 인증이 필요할 수 있습니다.
+   - Gemini API 키: Google AI Studio → API keys. 음성 인식에 씁니다.
+     - ⚠ **Cloud Billing이 꺼진 프로젝트의 키는 무료 등급**입니다. 가격표상 무료 등급 입력(강의 음성)은 Google 제품 개선에 사용됩니다.
+     - 유료 등급(결제 활성화)은 사용되지 않습니다. Google AI Pro의 월간 Cloud 크레딧도 결제 활성화가 전제입니다.
+     - 어느 쪽으로 할지 먼저 정하세요.
+   - (선택) Anthropic API 키: Claude Team 크레딧은 Owner만 받을 수 있습니다.
 2. **권장**: 두 콘솔 모두 월 사용 한도와 알림을 낮게 설정해 둡니다(예: $5).
 3. 설정 파일을 만듭니다.
 
@@ -21,11 +25,11 @@
    `.env`에서 아래 항목만 바꿉니다. 나머지는 임시 기본값을 그대로 둡니다.
 
    ```env
-   STT_PROVIDER=openai
-   TEXT_PROVIDER=anthropic
+   STT_PROVIDER=gemini
+   TEXT_PROVIDER=openai
    IMAGE_PROVIDER=openai
    OPENAI_API_KEY=여기에_직접_입력
-   ANTHROPIC_API_KEY=여기에_직접_입력
+   GEMINI_API_KEY=여기에_직접_입력
    ```
 
 ## 1. 제공자별 단일 호출 (`eval/check_providers.py`)
@@ -35,9 +39,9 @@
 
 | 단계 | 명령 | 확인하는 것 | 비용 가정 |
 |---|---|---|---|
-| A | `backend/.venv/bin/python eval/check_providers.py --stt` | STT 연결, `session.updated` 승인, 실제 설정 검증 (오디오 미전송) | 오디오를 보내지 않으므로 거의 0 (과금 기준 미확인) |
-| B | `… --stt --wav eval/samples/sample_ko.wav` | 한국어 전사 수신, commit → 확정까지 걸린 시간 | 약 6초 × $0.017/분 ≈ $0.002 |
-| C | `… --text` | Haiku 기획 1회: 구조화 JSON 검증, 지연, 토큰 | 1센트 미만 |
+| A | `backend/.venv/bin/python eval/check_providers.py --stt` | STT 연결과 설정 완료 신호 수신 (Gemini는 `setupComplete`, 오디오 미전송) | 오디오를 보내지 않으므로 거의 0 |
+| B | `… --stt --wav eval/samples/sample_ko.wav` | 한국어 전사 수신, 구간 종료 → 확정까지 걸린 시간 (WAV는 16kHz로 변환해 전송) | 약 6초 × $0.009/분 ≈ $0.001 (무료 등급이면 0) |
+| C | `… --text` | `gpt-6-luna` 기획 1회: 구조화 JSON 검증, 지연, 토큰 | 1센트 미만 |
 | D | `… --image --quality low` 그다음 `--quality medium` | 1536x864 생성 수락, 이미지 검증, 지연, 토큰 | 표 가격 기준 가정 약 $0.005 / $0.04. 1536x864 실제 가격은 응답 usage로 확인 |
 
 **B에 쓸 음성 파일** (둘 중 하나):
@@ -69,7 +73,7 @@ cd frontend && npm run dev
 ```
 
 1. Chrome에서 http://localhost:5173 을 열고 세션을 만든 뒤 **청중 화면 열기**를 누릅니다.
-2. 상단 배지가 `STT: gpt-live-transcribe`, `텍스트: claude-haiku-5-5`, `이미지: gpt-image-2`이고 MOCK 표시가 없는지 확인합니다.
+2. 상단 배지가 `STT: gemini-3.5-transcribe-live`, `텍스트: gpt-6-luna`, `이미지: gpt-image-2`이고 MOCK 표시가 없는지 확인합니다.
 3. **● 마이크 시작** → 상태가 `STT 연결 중`에서 `듣는 중`으로 바뀌는지 확인합니다(설정 승인).
 4. [lecture-scenarios.md](lecture-scenarios.md) 1번 시나리오를 말하면서 다음을 확인합니다.
    - 자막: 임시 결과 → 확정, 띄어쓰기, 전문용어
@@ -85,7 +89,7 @@ cd frontend && npm run dev
 backend/.venv/bin/python eval/latency_probe.py -n 5
 # 비교가 필요할 때
 backend/.venv/bin/python eval/latency_probe.py -n 5 --quality medium
-backend/.venv/bin/python eval/latency_probe.py -n 5 --text-model claude-sonnet-5-5   # PRICE_TEXT_* 도 2 / 10 으로 바꿔야 비용 추정이 맞음
+# 다른 텍스트 모델과 비교하려면 .env 의 OPENAI_TEXT_MODEL / OPENAI_TEXT_REASONING 과 PRICE_TEXT_* 를 바꿔서 다시 실행
 ```
 
 기획 시간, 이미지 시간, 총 대기 시간, 실패율, 토큰, 추정 비용이 `eval/results/latency_*.json`에 저장됩니다.

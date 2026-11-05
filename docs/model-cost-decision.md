@@ -181,3 +181,59 @@ Gemini API 가격 ([AI Studio 가격표](https://aistudio.google.com/docs/pricin
 | A. 현재 | OpenAI | Claude (Team 크레딧) | OpenAI | OpenAI 결제 필요 | 없음 |
 | B. OpenAI 제거 | Gemini transcribe-live | Claude (Team 크레딧) | Gemini 이미지 | Google Cloud Billing (Pro 크레딧이 적용되면 그 안에서) | Gemini 음성 인식·이미지 어댑터 구현, 오디오 형식 재확인, 새 검증 |
 | C. Gemini 하나로 | Gemini | Gemini Flash-Lite | Gemini 이미지 | Google Cloud Billing | B에 더해 텍스트 어댑터 |
+
+## 9. 결정: GPT + Gemini 구성 (2026-11-05)
+
+**경위.** 사용자는 Claude 과학자용 Team의 **관리자(Admin)**이고 주 소유자는 아닙니다. 공식 도움말상 결제 설정(Organization settings > Billing)에는 Owner와 Primary Owner만 접근할 수 있고, API 크레딧은 그 메뉴에서 연결합니다. 따라서 Owner가 대신 받아 주지 않는 한 크레딧을 쓸 수 없습니다([Roles and permissions](https://support.claude.com/en/articles/9267276-roles-and-permissions)). 사용자 결정에 따라 **GPT + Gemini 구성**으로 바꿨습니다. Claude 어댑터는 `TEXT_PROVIDER=anthropic` 선택지로 남겨 두었습니다.
+
+이 절은 3, 4, 6절의 기본값 설명을 대체합니다. 모든 값은 임시 설정이며 환경변수로 바꿀 수 있습니다.
+
+| 기능 | 제공자 / 모델 (임시 기본) | 단가 (공식, 2026-11-05) | 고른 이유 |
+|---|---|---|---|
+| 음성 인식 | Gemini `gemini-3.5-transcribe-live` | 유료: 오디오 $0.005/분 + 텍스트 $0.004/분 (문서 각주의 혼합 추정 약 $0.009/분). 무료 등급 있음 | OpenAI `gpt-live-transcribe`($0.017/분)의 약 절반. 비용 가정에서 가장 큰 항목. Google AI Pro 크레딧이 적용될 가능성 |
+| 기획 | OpenAI `gpt-6-luna`, reasoning effort `none` | $0.10 / $0.50 per 1M tok | 모델 페이지 설명이 "focused, high-volume tasks"용. 구조화 출력 지원. 이미지와 같은 계정 |
+| 이미지 | OpenAI `gpt-image-2`, 1536x864, low, jpeg | 이미지 출력 $30 / 텍스트 입력 $5 per 1M tok (1536x1024 low 표 가격 $0.005) | Gemini 이미지 모델(최저 `gemini-3.1-flash-lite-image` 장당 $0.0336, 무료 등급 없음)보다 쌈. 임의 해상도 지원이 문서에 명시됨 |
+
+**Gemini 전사 구현 요약** ([Live transcription 가이드](https://aistudio.google.com/docs/live-api/live-transcribe), [Live API reference](https://aistudio.google.com/api-reference/live)):
+
+- **연결과 설정**
+  - `BidiGenerateContent` WebSocket에 API 키를 `key` 쿼리로 넘깁니다. URL을 로그와 오류 메시지에 남기지 않으며, 테스트로 확인했습니다.
+  - setup: `responseModalities: ["TEXT"]`, `inputAudioTranscription.languageCodes: ["ko-KR"]`, `realtimeInputConfig.automaticActivityDetection.disabled: true`
+  - **`setupComplete`를 받은 뒤에만 ready**가 됩니다. 시간 초과(`ack_timeout`)나 setup 중 연결 종료(`rejected`)는 실패로 처리합니다.
+  - Gemini는 OpenAI와 달리 실제 반영된 설정을 돌려주지 않습니다. 그래서 모델, 언어, 형식이 실제로 반영됐는지는 **프로토콜상 확인할 수 없고**, 점검 결과에 `not_verifiable_by_protocol`로 기록합니다.
+- **오디오와 구간**
+  - 16kHz PCM16입니다. 브라우저 AudioWorklet이 서버 설정의 샘플레이트를 읽어 리샘플링하며, 실제 Chrome에서 48k/44.1k → 16k 변환과 8kHz 초과 성분 감쇠(약 -52dB)를 확인했습니다.
+  - 서버 VAD의 구간 경계를 `activityStart`/`activityEnd`로 전달합니다. 짧은 잡음은 보내지 않는다는 기존 규칙은 그대로 적용됩니다.
+- **결과**
+  - 임시 결과는 `interimInputTranscription`, 확정 결과는 `inputTranscription`입니다.
+  - 구간 ID가 없어서, 한 연결 안에서는 순서대로 온다고 보고(`ordered_finals`) 바로 감지기에 넘깁니다.
+- **세션 제한**: 세션은 최대 10분이라 `GEMINI_STT_ROTATE_S`(480초) 전후로 쉬는 구간에서 새 세션을 먼저 연 뒤 교체합니다. `goAway`를 받아도 교체합니다.
+
+**새로 생긴 미검증 항목:**
+
+- 모델 ID 표기 차이: Gemini API 문서는 `gemini-3.5-transcribe-live`, Google Cloud 문서는 `-preview` 접미사
+- `customVocabulary` 요소 형식 (기본값은 보내지 않음)
+- 한국어 정확도와 지연
+- 무료 등급 속도 제한
+- 확정 결과가 구간당 정확히 하나씩 오는지 (지표용 구간 매핑에만 영향)
+- Google AI Pro 크레딧이 API 키 호출에 적용되는지, 크레딧 소진 후 청구되는지 멈추는지
+
+**개인정보 주의.** Cloud Billing이 꺼진 프로젝트의 Gemini 키는 무료 등급이고, 가격표상 무료 등급 입력(강의 음성)은 **Google 제품 개선에 사용**됩니다. 유료 등급(결제 활성화)은 사용되지 않습니다. 실제 강의에 쓰기 전에 어느 등급으로 쓸지 정해야 합니다.
+
+**예산 가정 (실측 아님).** 50분 강의, 생성 10장 기준입니다.
+
+| 항목 | 가정 |
+|---|---|
+| 음성 인식 | 전송한 발화 35~50분 × $0.009 ≈ $0.3~0.45 (무료 등급이면 $0) |
+| 기획 | 10장 × 1센트 미만 |
+| 이미지 | 10장 × $0.005(대용 가정값) ≈ $0.06 |
+| **합계** | **약 $0.4~0.5** (무료 등급 STT면 약 $0.07) |
+
+**검증 수준 (2026-11-05):**
+
+| 구성 요소 | 모델명 문서 확인 | 계정 권한 | 실제 호출 | 전체 시스템 |
+|---|---|---|---|---|
+| STT `gemini-3.5-transcribe-live` | ✅ (ID 표기 차이 있음) | ❌ 미검증 | ❌ | ❌ |
+| 텍스트 `gpt-6-luna` | ✅ 모델 페이지 | ❌ 미검증 | ❌ | ❌ |
+| 이미지 `gpt-image-2` | ✅ | ❌ 미검증 | ❌ | ❌ |
+| 어댑터 요청 형식 | – | – | 로컬 가짜 서버 계약 테스트만 | mock·가짜 서버로 72개 테스트 |

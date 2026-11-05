@@ -121,3 +121,41 @@
 - 실제 호출, 지연, 비용 전부
 
 **다음 할 일**: `docs/real-api-testing.md`의 1-A부터 차례로 진행합니다.
+
+---
+
+## 2026-11-05 (4) — 구성 변경: GPT + Gemini (Claude 크레딧 수령 불가)
+
+**계기**
+사용자 요금제는 Claude 과학자용 Team(역할: 관리자), ChatGPT Plus, Google AI Pro입니다. Claude Team의 API 크레딧은 Owner와 Primary Owner만 받을 수 있고(관리자는 결제 설정에 접근 불가), ChatGPT Plus에는 API가 포함되지 않습니다. 사용자 결정에 따라 GPT + Gemini로 구성했습니다.
+
+**변경**
+- 음성 인식 기본값: Gemini `gemini-3.5-transcribe-live` (`app/providers/gemini_stt.py`)
+  - 문서에 나온 프로토콜만 사용합니다: setup, `setupComplete` 대기, 16kHz, `activityStart`/`activityEnd`, `interimInputTranscription`/`inputTranscription`, `goAway`.
+  - 10분 제한 전에 쉬는 구간에서 세션을 교체합니다(새 세션을 먼저 연 뒤 전환).
+  - 키는 URL 쿼리로만 전달하고 오류 메시지에 넣지 않습니다.
+  - 순서가 보장되는 제공자(`ordered_finals`)는 SttStream의 순서 보정 대기열을 건너뜁니다.
+- 기획 기본값: OpenAI `gpt-6-luna` (`app/providers/openai_text.py`)
+  - Responses API, `text.format` json_schema strict, `reasoning.effort=none`, `store=False`.
+  - HTTP 상태, 거절, 미완료를 구분해 기록합니다.
+- 이미지는 그대로 OpenAI `gpt-image-2` low입니다(Gemini 이미지보다 저렴).
+- 샘플레이트를 제공자에 따라 정합니다(Gemini 16000, OpenAI 24000). 브라우저 워클릿은 `/api/config`의 값을 따릅니다.
+- `SttSessionError`를 공용 모듈로 옮겼습니다. 제공자 팩토리를 정리했고, `check_providers.py`도 팩토리를 쓰도록 바꿨습니다.
+- 문서: `.env.example`, README, real-api-testing, architecture, results를 갱신하고 model-cost-decision §9를 추가했습니다.
+
+**검증**
+- pytest 72개 통과. 새로 추가한 7개:
+  - Gemini 계약 테스트 4개
+  - 샘플레이트·팩토리 1개
+  - OpenAI 텍스트 1개
+  - Gemini 전체 경로(16kHz VAD → 가짜 서버 → 감지 → 작업) 1개
+- 실제 Chrome 워클릿: 48k/44.1k → 16k 변환에서 주파수가 보존되고, 9kHz 톤은 -52dB로 감쇠됩니다.
+- 프런트엔드 타입 검사와 빌드를 통과했습니다.
+
+**여전히 미검증**
+- 실제 API 호출 전부
+- Gemini 모델 ID 표기(`-preview` 접미사 여부), customVocabulary 형식, 한국어 정확도
+- 무료 등급 속도 제한, Google AI Pro 크레딧 적용 범위
+
+**주의**
+Cloud Billing이 꺼진 Gemini 키는 무료 등급이라 입력 음성이 Google 제품 개선에 사용됩니다. 실제 강의에 쓰기 전에 등급을 정해야 합니다.

@@ -1,10 +1,12 @@
-// 마이크 캡처: getUserMedia → AudioWorklet(pcm-capture) → 24kHz PCM16 LE mono 100ms 청크
+// 마이크 캡처: getUserMedia → AudioWorklet(pcm-capture) → 서버가 요구하는 샘플레이트의 PCM16 LE mono 100ms 청크
+// (OpenAI 전사 24kHz, Gemini 전사 16kHz — 서버 /api/config 의 stt.sample_rate 를 따른다)
 
-export const TARGET_RATE = 24000;
+export const DEFAULT_TARGET_RATE = 24000;
 
 export interface MicHandle {
   stop: () => void;
   inputRate: number;
+  targetRate: number;
 }
 
 export class MicError extends Error {
@@ -27,6 +29,7 @@ function explain(e: unknown): MicError {
 export async function startMic(
   onChunk: (pcm: ArrayBuffer) => void,
   onEnded: (msg: string) => void,
+  targetRate: number = DEFAULT_TARGET_RATE,
 ): Promise<MicHandle> {
   if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia)
     throw new MicError("insecure", "마이크는 HTTPS 또는 localhost 에서만 사용할 수 있습니다.");
@@ -71,7 +74,7 @@ export async function startMic(
     channelCount: 1,
     channelCountMode: "explicit",
     channelInterpretation: "speakers",
-    processorOptions: { targetRate: TARGET_RATE, chunkMs: 100 },
+    processorOptions: { targetRate, chunkMs: 100 },
   });
   node.port.onmessage = (ev) => {
     if (ev.data?.type === "pcm") onChunk(ev.data.buffer as ArrayBuffer);
@@ -89,6 +92,7 @@ export async function startMic(
 
   return {
     inputRate: ctx.sampleRate,
+    targetRate,
     stop: () => {
       stopped = true;
       node.port.onmessage = null;

@@ -24,41 +24,17 @@ from typing import Optional
 import websockets
 from websockets.asyncio.client import ClientConnection, connect
 
-from .base import SttCallback, SttEvent
+from .base import SttCallback, SttEvent, SttSessionError  # noqa: F401  (SttSessionError 재수출)
 
 log = logging.getLogger("nextslide.stt")
 URL = "wss://api.openai.com/v1/realtime?intent=transcription"
 ACK_EVENTS = {"session.updated", "transcription_session.updated"}
 
 
-class SttSessionError(RuntimeError):
-    """설정 거부·승인 시간 초과·인증 실패 등 연결 단계 실패. 메시지는 사용자에게 보여도 되는 내용만 담는다.
-
-    stage:
-      config          : 시도 전 (키 없음)
-      connect_failed  : 서버 응답 없음 (네트워크·핸드셰이크 시간 초과)
-      http_rejected   : 서버가 WebSocket 핸드셰이크를 HTTP 오류로 거부 (인증·권한 등)
-      closed_before_ack / ack_timeout : 연결은 됐지만 설정 승인을 받지 못함
-      rejected        : 서버가 session.update 를 error 로 거부
-      mismatch        : 승인된 실제 설정이 요청과 다름
-      unverifiable    : 승인 응답에 확인할 필수 항목이 없음 (STT_STRICT_SESSION_CHECK=true 일 때 실패)
-    """
-
-    def __init__(self, message: str, stage: str = "unknown", http_status: Optional[int] = None):
-        super().__init__(message)
-        self.stage = stage
-        self.http_status = http_status
-
-    @property
-    def server_responded(self) -> Optional[bool]:
-        if self.stage == "config":
-            return None
-        return self.stage != "connect_failed"
-
-
 class OpenAISttProvider:
     name = "openai"
     is_mock = False
+    ordered_finals = False  # 문서: 구간 간 completed 순서 비보장 → 상위에서 commit 순서로 보정
 
     def __init__(self, model: str, languages: list[str], delay: str, sample_rate: int, max_reconnects: int = 3,
                  ack_timeout_s: float = 10.0, strict_session_check: bool = True):

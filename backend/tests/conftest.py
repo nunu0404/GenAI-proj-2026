@@ -13,6 +13,19 @@ from app.providers.mock import MockImageProvider, MockTextProvider  # noqa: E402
 from app.runtime import SessionRuntime  # noqa: E402
 
 
+PROXY_VARS = ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "WS_PROXY", "WSS_PROXY",
+              "http_proxy", "https_proxy", "all_proxy", "ws_proxy", "wss_proxy")
+
+
+@pytest.fixture(autouse=True)
+def _no_proxy_for_local_fakes(monkeypatch):
+    """로컬 가짜 서버로 가는 요청이 사용자 환경의 프록시를 타지 않게 한다."""
+    for v in PROXY_VARS:
+        monkeypatch.delenv(v, raising=False)
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+
+
 @pytest.fixture
 def settings(tmp_path) -> Settings:
     s = Settings()

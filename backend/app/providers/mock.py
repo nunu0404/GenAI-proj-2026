@@ -119,6 +119,7 @@ class MockSttProvider:
     name = "mock"
     model = "mock-stt"
     is_mock = True
+    ordered_finals = False
 
     def __init__(self, sample_rate: int = 24000):
         self.sample_rate = sample_rate

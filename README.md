@@ -2,8 +2,8 @@
 
 강의하면서 “다음 슬라이드에서는 ○○를 설명하겠습니다”라고 말하면, 최근 강의 맥락을 반영한 **설명용 이미지와 새 웹 슬라이드**를 만들어 다음 장으로 준비해 주는 웹 프레젠테이션 시스템입니다. 결과물은 PPT 파일이 아니라, 같은 웹 시스템 안에서 넘기며 발표하는 슬라이드 쇼입니다.
 
-- 음성 인식: OpenAI Realtime 전사(`gpt-live-transcribe`), 서버 중계 + 서버 VAD
-- 슬라이드 기획: Claude(임시 기본 `claude-haiku-5-5`, effort low), JSON 스키마 구조화 출력 + Pydantic 검증
+- 음성 인식: Gemini Live 전사(임시 기본 `gemini-3.5-transcribe-live`, 16kHz), 서버 중계 + 서버 VAD. 선택: OpenAI `gpt-live-transcribe`
+- 슬라이드 기획: OpenAI(임시 기본 `gpt-6-luna`, reasoning none), JSON 스키마 구조화 출력 + Pydantic 검증. 선택: Claude
 - 설명 이미지: OpenAI Images(`gpt-image-2`, 1536x864 = 16:9, 임시 기본 quality low, jpeg)
 - 모델 ID와 품질은 모두 환경변수로 교체할 수 있는 **임시 설정**입니다. 선택 근거, 과금 경로, 검증 수준은 [docs/model-cost-decision.md](docs/model-cost-decision.md)를 참고하세요.
 - 세 가지 모두 **어댑터로 분리**되어 있고, 자격증명이 없으면 **mock 모드**로 동작합니다(화면에 MOCK 표시).
@@ -36,11 +36,11 @@ mock 모드에서는 음성 구간 감지(VAD)까지만 동작하고 전사는 �
 `backend/.env`에서 다음을 설정합니다.
 
 ```env
-STT_PROVIDER=openai
-TEXT_PROVIDER=anthropic
+STT_PROVIDER=gemini
+TEXT_PROVIDER=openai
 IMAGE_PROVIDER=openai
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=...      # 직접 입력 (채팅·GitHub 에 올리지 말 것)
+GEMINI_API_KEY=...
 ```
 
 - OpenAI 이미지 모델은 조직 인증(API Organization Verification)이 필요할 수 있습니다(OpenAI 문서).
@@ -62,7 +62,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 ## 테스트와 평가
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q          # 65개: 감지·기획 검증·대기열·취소·복원·API/WS·VAD·전사 순서 보정·STT 설정 검증·제공자 계약
+cd backend && .venv/bin/python -m pytest -q          # 72개: 감지·기획 검증·대기열·취소·복원·API/WS·VAD·전사 순서 보정·STT 설정 검증·제공자 계약(OpenAI·Gemini·Claude)
 cd frontend && npm run typecheck && npm run build
 backend/.venv/bin/python eval/run_detection_eval.py   # 요청 감지 정확도 (라벨 40개, API 불필요)
 backend/.venv/bin/python eval/check_providers.py --stt | --text | --image   # 제공자별 실제 연결 점검 (실제 API 필요, 비용 발생)

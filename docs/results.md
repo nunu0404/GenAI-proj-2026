@@ -10,7 +10,7 @@
 
 | 항목 | 결과 | 비고 |
 |---|---|---|
-| 백엔드 자동 테스트 (`pytest`) | **65개 통과** (약 10초) | mock 제공자 주입, 실제 API 호출 없음 |
+| 백엔드 자동 테스트 (`pytest`) | **72개 통과** (약 11초) | mock 제공자 주입, 실제 API 호출 없음 |
 | 프런트엔드 타입 검사와 빌드 | 통과 | `tsc -b`, `vite build` |
 | 브라우저 E2E (헤드리스 Chrome, mock) | 통과 | 아래 항목 참고 |
 | 오디오 리샘플러 검증 (실제 Chrome AudioWorklet) | 통과 | 아래 항목 참고 |
@@ -37,6 +37,8 @@
 | 최소 발화 길이 (짧은 잡음은 STT로 보내지 않음) | `test_stt_stream::test_short_noise_is_not_sent_or_committed`, `test_noise_bursts_shorter_than_min_speech_never_reach_stt` |
 | 전사 완료 순서 보정 / 실패·시간 초과 건너뛰기 / 늦은 결과는 감지 제외 | `test_stt_stream::test_out_of_order_finals_are_delivered_in_commit_order`, `test_failed_head_segment_is_skipped_immediately`, `test_missing_head_times_out_and_late_result_skips_detection`, `test_hard_timeout_when_no_result_at_all` |
 | STT 승인 응답의 실제 설정 검증: 빈 응답, pcmu 형식, 세션 유형·모델 불일치는 실패 | `test_provider_contracts::test_empty_ack_session_is_unverifiable`, `test_pcmu_format_in_ack_is_mismatch`, `test_wrong_session_type_or_model_is_mismatch`, `test_full_ack_is_verified_and_non_strict_missing_warns` |
+| Gemini 전사: setup 형식, 16kHz, activityStart/End, setupComplete 전 미준비, 거부, goAway·시간 기반 세션 교체, 키 비노출, VAD → 감지 전체 경로 | `test_gemini_openai_providers::*` |
+| OpenAI 텍스트(Responses): strict JSON 스키마, reasoning none, store=False, 거절·미완료·401 | `test_gemini_openai_providers::test_openai_text_request_shape_and_errors` |
 | 점검 스크립트가 429/400/503, 200이지만 이미지 없음을 성공으로 기록하지 않음 | `test_provider_contracts::test_outcome_levels`, `test_check_image_does_not_report_errors_as_success` |
 | STT 설정 승인(`session.updated`) 후에만 ready, 거부·시간 초과·불일치 설정은 실패 | `test_provider_contracts::test_openai_stt_not_ready_without_ack`, `test_openai_stt_rejected_config_is_error`, `test_openai_stt_mismatched_effective_session_is_error`, `test_openai_stt_failed_segment_and_lost_on_disconnect` |
 | 모델별로 허용되는 옵션만 전송 (Haiku에는 fallback 없음) | `test_provider_contracts::test_anthropic_haiku_sends_only_supported_options`, `test_request_options_reject_invalid_combinations` |
@@ -71,6 +73,9 @@
 | 44,100 Hz | 1,000 Hz | 2400 | 1000 Hz | 16373 |
 | 16,000 Hz | 440 Hz | 2400 | 440 Hz | 16383 |
 | 48,000 Hz | 15,000 Hz (24kHz 나이퀴스트 초과) | 2400 | 0 | 0 (저역통과로 제거) |
+| 48,000 Hz → **16kHz 목표** | 440 Hz | 1600 (100ms @ 16kHz) | 440 Hz | 16384 |
+| 44,100 Hz → 16kHz 목표 | 1,000 Hz | 1600 | 1000 Hz | 16305 |
+| 48,000 Hz → 16kHz 목표 | 9,000 Hz (16kHz 나이퀴스트 초과) | 1600 | (잔여 성분) | 42 (약 -52dB 감쇠) |
 
 ## 2. 실측 수치
 

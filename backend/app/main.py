@@ -188,7 +188,7 @@ def create_app(s: Optional[Settings] = None, text: Optional[TextProvider] = None
                     try:
                         await my_stream.start()
                     except Exception as e:  # noqa: BLE001
-                        from .providers.openai_stt import SttSessionError
+                        from .providers.base import SttSessionError
                         reason = str(e) if isinstance(e, SttSessionError) else type(e).__name__
                         log.warning("STT start failed: %s", reason)
                         await hub.send(ws, {"type": "stt.status", "session_id": sid, "data": {

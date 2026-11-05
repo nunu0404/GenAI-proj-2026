@@ -5,7 +5,14 @@ from .base import ImageProvider, SttProvider, TextProvider
 from .mock import MockImageProvider, MockSttProvider, MockTextProvider
 
 
+def _csv(v: str) -> list[str]:
+    return [x.strip() for x in v.split(",") if x.strip()]
+
+
 def make_text_provider(s: Settings) -> TextProvider:
+    if s.text_provider == "openai":
+        from .openai_text import OpenAITextProvider
+        return OpenAITextProvider(s.openai_text_model, s.openai_text_reasoning, s.text_timeout_s, s.text_max_tokens)
     if s.text_provider == "anthropic":
         from .anthropic_text import AnthropicTextProvider
         return AnthropicTextProvider(s.anthropic_text_model, s.text_effort, s.text_timeout_s, s.text_use_fallbacks,
@@ -22,9 +29,13 @@ def make_image_provider(s: Settings) -> ImageProvider:
 
 
 def make_stt_provider(s: Settings) -> SttProvider:
+    if s.stt_provider == "gemini":
+        from .gemini_stt import GeminiSttProvider
+        return GeminiSttProvider(s.gemini_stt_model, _csv(s.gemini_stt_languages), s.gemini_stt_mode,
+                                 _csv(s.gemini_stt_vocabulary), s.stt_sample_rate, s.stt_max_reconnects,
+                                 s.stt_session_ack_timeout_s, s.gemini_stt_rotate_s)
     if s.stt_provider == "openai":
         from .openai_stt import OpenAISttProvider
-        langs = [x.strip() for x in s.stt_languages.split(",") if x.strip()]
-        return OpenAISttProvider(s.openai_stt_model, langs, s.stt_delay, s.stt_sample_rate, s.stt_max_reconnects,
-                                 s.stt_session_ack_timeout_s, s.stt_strict_session_check)
+        return OpenAISttProvider(s.openai_stt_model, _csv(s.stt_languages), s.stt_delay, s.stt_sample_rate,
+                                 s.stt_max_reconnects, s.stt_session_ack_timeout_s, s.stt_strict_session_check)
     return MockSttProvider(sample_rate=s.stt_sample_rate)

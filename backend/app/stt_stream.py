@@ -147,6 +147,10 @@ class SttStream:
 
     async def _on_final(self, ev: SttEvent) -> None:
         now = time.monotonic()
+        if getattr(self.p, "ordered_finals", False):
+            # 한 연결 안에서 순서대로 오는 제공자(Gemini): 대기열 없이 바로 전달. local_segment 는 지표용.
+            await self._deliver(_Pending(ev.local_segment or "?", now, "done", ev, now), feed_detector=True)
+            return
         async with self._order_lock:
             ls = ev.local_segment
             ent = self._by_seg.get(ls) if ls else None
@@ -285,9 +289,10 @@ class SttStream:
         self._state = "idle"
         self._local_seg = None
         self.committed += 1
-        ent = _Pending(seg, time.monotonic())
-        async with self._order_lock:
-            self._order.append(ent)
-            self._by_seg[seg] = ent
+        if not getattr(self.p, "ordered_finals", False):
+            ent = _Pending(seg, time.monotonic())
+            async with self._order_lock:
+                self._order.append(ent)
+                self._by_seg[seg] = ent
         await self.p.commit(seg)
         await self.rt.hub.broadcast(self.rt.sid, "stt.vad", {"speaking": False})

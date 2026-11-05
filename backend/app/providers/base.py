@@ -67,6 +67,31 @@ class ImageProvider(Protocol):
 
 
 # ---------------- STT ----------------
+class SttSessionError(RuntimeError):
+    """STT 연결 단계 실패. 메시지는 사용자에게 보여도 되는 내용만 담는다(키·URL 미포함).
+
+    stage:
+      config          : 시도 전 (키 없음)
+      connect_failed  : 서버 응답 없음 (네트워크·핸드셰이크 시간 초과)
+      http_rejected   : 서버가 WebSocket 핸드셰이크를 HTTP 오류로 거부 (인증·권한 등)
+      closed_before_ack / ack_timeout : 연결은 됐지만 설정 승인을 받지 못함
+      rejected        : 서버가 설정을 오류로 거부
+      mismatch        : 승인된 실제 설정이 요청과 다름
+      unverifiable    : 승인 응답에 확인할 필수 항목이 없음
+    """
+
+    def __init__(self, message: str, stage: str = "unknown", http_status: Optional[int] = None):
+        super().__init__(message)
+        self.stage = stage
+        self.http_status = http_status
+
+    @property
+    def server_responded(self) -> Optional[bool]:
+        if self.stage == "config":
+            return None
+        return self.stage != "connect_failed"
+
+
 @dataclass
 class SttEvent:
     type: str  # partial | final | committed | status | error | notice
@@ -85,6 +110,8 @@ class SttProvider(Protocol):
     name: str
     model: str
     is_mock: bool
+    # True: 한 연결 안에서 확정 결과가 commit 순서대로 온다고 보장되는 제공자 → 상위의 순서 보정 대기열을 쓰지 않음
+    ordered_finals: bool
 
     async def start(self, on_event: SttCallback) -> None: ...
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, STATUS_LABEL, type Job, type Slide } from "../api";
-import { MicError, startMic, TARGET_RATE, type MicHandle } from "../audio/mic";
+import { MicError, startMic, type MicHandle } from "../audio/mic";
 import { SlideFrame, SlideView } from "../components/SlideView";
 import { isTypingTarget } from "../keys";
 import { useSessionSocket } from "../useSessionSocket";
@@ -12,7 +12,7 @@ export function Presenter({ sid }: { sid: string }) {
   const onOpen = useCallback((ws: WebSocket) => {
     // 재연결 시 서버 측 STT 스트림이 끊겼으므로 마이크가 켜져 있으면 다시 선언
     if (micRef.current)
-      ws.send(JSON.stringify({ type: "mic_start", sample_rate: TARGET_RATE, encoding: "pcm_s16le", channels: 1, input_rate: micRef.current.inputRate }));
+      ws.send(JSON.stringify({ type: "mic_start", sample_rate: micRef.current.targetRate, encoding: "pcm_s16le", channels: 1, input_rate: micRef.current.inputRate }));
   }, []);
   const { state, conn, sendJson, sendBinary, notify, subscribe } = useSessionSocket(sid, "presenter", onOpen);
   const { session, slides, jobs, config } = state;
@@ -136,16 +136,18 @@ export function Presenter({ sid }: { sid: string }) {
     }
     setMicStarting(true);
     try {
+      const targetRate = config?.stt.sample_rate ?? 24000; // 서버 STT 제공자가 요구하는 샘플레이트
       const h = await startMic(
         (pcm) => sendBinary(pcm),
         (msg) => {
           setMicErr(msg);
           stopMic();
         },
+        targetRate,
       );
       micRef.current = h;
       setMicOn(true);
-      sendJson({ type: "mic_start", sample_rate: TARGET_RATE, encoding: "pcm_s16le", channels: 1, input_rate: h.inputRate });
+      sendJson({ type: "mic_start", sample_rate: h.targetRate, encoding: "pcm_s16le", channels: 1, input_rate: h.inputRate });
     } catch (e) {
       setMicErr(e instanceof MicError ? e.message : String(e));
     } finally {

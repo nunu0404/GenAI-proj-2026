@@ -30,15 +30,14 @@ def _float_or_none(name: str) -> Optional[float]:
 @dataclass
 class Settings:
     # --- 제공자 선택 (mock | 실제) ---
-    stt_provider: str = field(default_factory=lambda: _env("STT_PROVIDER", "mock"))  # openai | mock
-    text_provider: str = field(default_factory=lambda: _env("TEXT_PROVIDER", "mock"))  # anthropic | mock
+    stt_provider: str = field(default_factory=lambda: _env("STT_PROVIDER", "mock"))  # gemini | openai | mock
+    text_provider: str = field(default_factory=lambda: _env("TEXT_PROVIDER", "mock"))  # openai | anthropic | mock
     image_provider: str = field(default_factory=lambda: _env("IMAGE_PROVIDER", "mock"))  # openai | mock
 
     # --- STT (OpenAI Realtime transcription) ---
     openai_stt_model: str = field(default_factory=lambda: _env("OPENAI_STT_MODEL", "gpt-live-transcribe"))
     stt_languages: str = field(default_factory=lambda: _env("STT_LANGUAGES", "ko"))
     stt_delay: str = field(default_factory=lambda: _env("STT_DELAY", "low"))
-    stt_sample_rate: int = 24000  # OpenAI 문서: audio/pcm 24kHz mono PCM16. 변경 불가 상수로 둔다.
     stt_max_reconnects: int = field(default_factory=lambda: int(_env("STT_MAX_RECONNECTS", "3")))
     vad_rms_threshold: float = field(default_factory=lambda: float(_env("VAD_RMS_THRESHOLD", "450")))
     vad_silence_ms: int = field(default_factory=lambda: int(_env("VAD_SILENCE_MS", "700")))
@@ -46,6 +45,13 @@ class Settings:
     vad_max_segment_ms: int = field(default_factory=lambda: int(_env("VAD_MAX_SEGMENT_MS", "12000")))
     vad_preroll_ms: int = field(default_factory=lambda: int(_env("VAD_PREROLL_MS", "300")))
     # 전사 완료 순서 보정: 앞 구간 결과를 기다리는 최대 시간(뒤 구간이 이미 도착한 경우) / 결과 자체를 기다리는 최대 시간
+    # --- STT (Gemini Live transcription) ---
+    gemini_stt_model: str = field(default_factory=lambda: _env("GEMINI_STT_MODEL", "gemini-3.5-transcribe-live"))
+    gemini_stt_languages: str = field(default_factory=lambda: _env("GEMINI_STT_LANGUAGES", "ko-KR"))
+    gemini_stt_mode: str = field(default_factory=lambda: _env("GEMINI_STT_MODE", "VERBATIM"))  # VERBATIM | SMART
+    gemini_stt_vocabulary: str = field(default_factory=lambda: _env("GEMINI_STT_VOCABULARY", ""))  # 쉼표 구분 전문용어
+    # 문서: 라이브 전사 세션은 최대 10분 → 그 전에 쉬는 구간에서 새 세션으로 교체
+    gemini_stt_rotate_s: float = field(default_factory=lambda: float(_env("GEMINI_STT_ROTATE_S", "480")))
     stt_reorder_timeout_ms: int = field(default_factory=lambda: int(_env("STT_REORDER_TIMEOUT_MS", "3000")))
     stt_result_timeout_ms: int = field(default_factory=lambda: int(_env("STT_RESULT_TIMEOUT_MS", "10000")))
     # session.update 후 서버의 session.updated(설정 승인)를 기다리는 시간
@@ -63,6 +69,10 @@ class Settings:
     text_max_repair: int = field(default_factory=lambda: int(_env("TEXT_MAX_REPAIR", "1")))
     # 서버 측 refusal fallback. 지원 모델(opus-5-5, sonnet-5-5, fable 등)에서만 전송. Haiku 5.5 는 미지원.
     text_use_fallbacks: bool = field(default_factory=lambda: _env("TEXT_USE_FALLBACKS", "true").lower() == "true")
+
+    # --- 텍스트: OpenAI (Responses API, 구조화 출력) --- 임시 기본값, 실측 후 확정
+    openai_text_model: str = field(default_factory=lambda: _env("OPENAI_TEXT_MODEL", "gpt-6-luna"))
+    openai_text_reasoning: str = field(default_factory=lambda: _env("OPENAI_TEXT_REASONING", "none"))
 
     # --- 이미지 ---
     openai_image_model: str = field(default_factory=lambda: _env("OPENAI_IMAGE_MODEL", "gpt-image-2"))
@@ -94,6 +104,19 @@ class Settings:
     data_dir: Path = field(default_factory=lambda: Path(_env("DATA_DIR", str(BACKEND_DIR / "data"))))
 
     @property
+    def stt_sample_rate(self) -> int:
+        """제공자 문서가 요구하는 입력 형식: OpenAI audio/pcm 24kHz, Gemini audio/pcm;rate=16000 (모두 mono PCM16 LE)."""
+        return 16000 if self.stt_provider == "gemini" else 24000
+
+    @property
+    def stt_model(self) -> str:
+        return {"openai": self.openai_stt_model, "gemini": self.gemini_stt_model}.get(self.stt_provider, "mock")
+
+    @property
+    def text_model(self) -> str:
+        return {"openai": self.openai_text_model, "anthropic": self.anthropic_text_model}.get(self.text_provider, "mock")
+
+    @property
     def db_path(self) -> Path:
         return self.data_dir / "nextslide.sqlite3"
 
@@ -104,10 +127,10 @@ class Settings:
     def public_info(self) -> dict:
         """브라우저에 보낼 수 있는 정보(키 제외)."""
         return {
-            "stt": {"provider": self.stt_provider, "model": self.openai_stt_model if self.stt_provider == "openai" else "mock",
+            "stt": {"provider": self.stt_provider, "model": self.stt_model,
                     "sample_rate": self.stt_sample_rate, "encoding": "pcm_s16le", "channels": 1},
-            "text": {"provider": self.text_provider, "model": self.anthropic_text_model if self.text_provider == "anthropic" else "mock",
-                     "effort": self.text_effort},
+            "text": {"provider": self.text_provider, "model": self.text_model,
+                     "effort": self.openai_text_reasoning if self.text_provider == "openai" else self.text_effort},
             "image": {"provider": self.image_provider, "model": self.openai_image_model if self.image_provider == "openai" else "mock",
                       "size": self.image_size, "quality": self.image_quality, "format": self.image_format},
             "mock": {
@@ -127,6 +150,10 @@ class Settings:
             probs.append("IMAGE_PROVIDER=openai 이지만 OPENAI_API_KEY 가 없습니다.")
         if self.stt_provider == "openai" and not os.environ.get("OPENAI_API_KEY"):
             probs.append("STT_PROVIDER=openai 이지만 OPENAI_API_KEY 가 없습니다.")
+        if self.stt_provider == "gemini" and not os.environ.get("GEMINI_API_KEY"):
+            probs.append("STT_PROVIDER=gemini 이지만 GEMINI_API_KEY 가 없습니다.")
+        if self.text_provider == "openai" and not os.environ.get("OPENAI_API_KEY"):
+            probs.append("TEXT_PROVIDER=openai 이지만 OPENAI_API_KEY 가 없습니다.")
         return probs
 
 

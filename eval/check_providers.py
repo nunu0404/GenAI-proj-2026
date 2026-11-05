@@ -50,7 +50,7 @@ def outcome(http_status: int | None, result_valid: bool | None) -> dict:
             "result_valid": result_valid, "http_status": http_status}
 
 
-def load_wav_24k(path: str) -> bytes:
+def load_wav(path: str, rate: int) -> bytes:
     with wave.open(path, "rb") as w:
         if w.getsampwidth() != 2:
             raise SystemExit("16-bit PCM WAV 만 지원합니다")
@@ -58,25 +58,28 @@ def load_wav_24k(path: str) -> bytes:
         x = np.frombuffer(w.readframes(w.getnframes()), dtype="<i2").astype(np.float32)
     if ch > 1:
         x = x.reshape(-1, ch).mean(axis=1)
-    if sr != 24000:  # 점검용 단순 리샘플링 (실서비스 경로는 브라우저 AudioWorklet 의 FIR + 보간)
-        n = int(len(x) * 24000 / sr)
+    if sr != rate:  # 점검용 단순 리샘플링 (실서비스 경로는 브라우저 AudioWorklet 의 FIR + 보간)
+        n = int(len(x) * rate / sr)
         x = np.interp(np.linspace(0, len(x) - 1, n), np.arange(len(x)), x)
     return np.clip(x, -32768, 32767).astype("<i2").tobytes()
 
 
 async def check_stt(s: Settings, wav: str | None) -> dict:
-    r: dict = {"provider": "openai", "model": s.openai_stt_model, "server_responded": None, "request_accepted": None,
-               "result_valid": None}
-    if not os.environ.get("OPENAI_API_KEY"):
-        return {**r, "status": "미검증 (OPENAI_API_KEY 없음)"}
-    from app.providers.openai_stt import OpenAISttProvider, SttSessionError
+    from app.providers import make_stt_provider
+    from app.providers.base import SttSessionError
+    key_env = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY"}.get(s.stt_provider)
+    r: dict = {"provider": s.stt_provider, "model": s.stt_model, "sample_rate": s.stt_sample_rate,
+               "server_responded": None, "request_accepted": None, "result_valid": None}
+    if key_env is None:
+        return {**r, "status": f"미검증 (STT_PROVIDER={s.stt_provider} 는 실제 제공자가 아님)"}
+    if not os.environ.get(key_env):
+        return {**r, "status": f"미검증 ({key_env} 없음)"}
     events: list[SttEvent] = []
 
     async def on(ev):
         events.append(ev)
 
-    p = OpenAISttProvider(s.openai_stt_model, [x.strip() for x in s.stt_languages.split(",")], s.stt_delay,
-                          s.stt_sample_rate, 0, s.stt_session_ack_timeout_s, s.stt_strict_session_check)
+    p = make_stt_provider(s)
     t0 = time.monotonic()
     try:
         await p.start(on)
@@ -87,8 +90,8 @@ async def check_stt(s: Settings, wav: str | None) -> dict:
     r.update(server_responded=True, request_accepted=True, ack_ms=round((time.monotonic() - t0) * 1000, 1),
              effective_session=p.effective_session, session_check=p.session_check)
     if wav:
-        pcm = load_wav_24k(wav)
-        step = 2400 * 2
+        pcm = load_wav(wav, s.stt_sample_rate)
+        step = s.stt_sample_rate // 10 * 2  # 100ms
         for i in range(0, len(pcm), step):
             await p.send_audio(pcm[i:i + step])
             await asyncio.sleep(0.02)
@@ -97,23 +100,26 @@ async def check_stt(s: Settings, wav: str | None) -> dict:
         while time.monotonic() - t_commit < 20 and not any(e.type in ("final", "segment_failed") for e in events):
             await asyncio.sleep(0.05)
         fin = next((e for e in events if e.type == "final"), None)
-        r.update(audio_seconds=round(len(pcm) / 2 / 24000, 2), result_valid=bool(fin and fin.text),
+        secs = len(pcm) / 2 / s.stt_sample_rate
+        r.update(audio_seconds=round(secs, 2), result_valid=bool(fin and fin.text),
                  transcript=fin.text if fin else None,
                  commit_to_final_ms=round((time.monotonic() - t_commit) * 1000, 1) if fin else None,
                  partial_count=sum(1 for e in events if e.type == "partial"),
-                 cost_estimate_usd=(len(pcm) / 2 / 24000 / 60 * s.price_stt_per_min) if s.price_stt_per_min else None)
+                 cost_estimate_usd=(secs / 60 * s.price_stt_per_min) if s.price_stt_per_min else None)
     await p.close()
     r["status"] = "전사 수신 성공" if r["result_valid"] else ("설정 승인·검증 성공 (오디오 미전송)" if not wav else "전사 결과 없음")
     return r
 
 
 async def check_text(s: Settings) -> dict:
-    r: dict = {"provider": "anthropic", "model": s.anthropic_text_model, "effort": s.text_effort}
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        return {**r, "status": "미검증 (ANTHROPIC_API_KEY 없음)"}
-    from app.providers.anthropic_text import AnthropicTextProvider
-    p = AnthropicTextProvider(s.anthropic_text_model, s.text_effort, s.text_timeout_s, s.text_use_fallbacks,
-                              s.text_thinking, s.text_max_tokens)
+    from app.providers import make_text_provider
+    key_env = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}.get(s.text_provider)
+    r: dict = {"provider": s.text_provider, "model": s.text_model}
+    if key_env is None:
+        return {**r, "status": f"미검증 (TEXT_PROVIDER={s.text_provider} 는 실제 제공자가 아님)"}
+    if not os.environ.get(key_env):
+        return {**r, "status": f"미검증 ({key_env} 없음)"}
+    p = make_text_provider(s)
     t0 = time.monotonic()
     try:
         res = await plan_slide(p, CTX, REQ, s.text_max_repair)
