@@ -148,3 +148,32 @@ def test_topic_sufficiency():
     assert not topic_is_sufficient("이거")
     assert not topic_is_sufficient("그 내용을")
     assert topic_is_sufficient("앞에서 말한 과적합을")
+
+
+def test_added_expressions_generate():
+    cases = {
+        "다음으로 경사하강법을 설명하겠습니다.": "경사하강법",
+        "그다음으로 정규화를 살펴보겠습니다.": "정규화",
+        "경사하강법 슬라이드 부탁해요.": "경사하강법",
+        "교차 검증 슬라이드 부탁드립니다.": "교차 검증",
+        "자 그럼 이제 경사하강법 슬라이드 하나 만들어 주세요.": "경사하강법",
+    }
+    for text, topic in cases.items():
+        d = RequestDetector(silence_s=2.5)
+        evs = d.feed_final("a", text, 1.0) + d.tick(5.0)
+        assert [e.topic for e in evs if e.kind == "request"] == [topic], text
+
+
+def test_loose_next_without_completion_is_silently_ignored():
+    for text in ["다음으로 넘어가겠습니다.", "다음으로 중요한 점은 데이터의 양입니다.", "그다음으로 넘어가 볼게요.",
+                 "이 방법 다음으로 많이 쓰이는 것은 랜덤 포레스트입니다.", "다음으로 이거 설명할게요.",
+                 "다음으로 경사하강법은 설명하지 않겠습니다.", "슬라이드 부탁드린 거 다들 받으셨나요?"]:
+        d = RequestDetector(silence_s=2.5)
+        evs = d.feed_final("a", text, 1.0) + d.tick(5.0)
+        assert [e.kind for e in evs if e.kind != "candidate"] == [], text  # 보완 카드도 띄우지 않음
+
+
+def test_loose_next_split_across_segments():
+    d = RequestDetector(silence_s=2.5)
+    evs, _ = feed(d, ["다음으로", "경사하강법을 설명하겠습니다."])
+    assert [e.topic for e in evs if e.kind == "request"] == ["경사하강법"]

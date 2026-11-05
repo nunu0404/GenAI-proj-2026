@@ -17,8 +17,11 @@ from typing import Literal, Optional
 # ---------------------------------------------------------------- 패턴
 R_NEXT = re.compile(r"다음\s*(?:슬라이드|장|페이지)\s*(?:에서는|에서|에는|에선|엔|은|는|에|를|을|로|으로)?")
 R_MAKE = re.compile(
-    r"(?:다음\s*)?슬라이드\s*(?:를|을)?\s*(?:하나\s*|한\s*장\s*)?(?:만들어|생성해|추가해)\s*(?:주세요|줘요|줘|주십시오|주실래요)"
+    r"(?:다음\s*)?슬라이드\s*(?:를|을|도|로)?\s*(?:하나\s*|한\s*장\s*)?"
+    r"(?:(?:만들어|생성해|추가해)\s*(?:주세요|줘요|줘|주십시오|주실래요)|부탁\s*(?:해요|합니다|드려요|드립니다|드릴게요|할게요|해))"
 )
+# 약한 트리거: '(그)다음으로 X 를 설명하겠습니다' — 같은 문장 안에 완료 표현이 있을 때만 생성, 아니면 조용히 무시
+R_NEXT_LOOSE = re.compile(r"(?<![가-힣])(?:그\s*)?다음으로\s*")
 
 _STEMS = r"(?:설명|소개|정리|비교|이야기|얘기|요약|정의|시연|예시를\s*들어|예를\s*들어|비유)"
 R_COMPLETE = re.compile(
@@ -54,7 +57,7 @@ FILLERS = {
     "이거", "그거", "저거", "이것", "그것", "저것", "이", "그", "저", "뭔가", "무언가", "무엇", "어떤", "것", "거", "걸",
     "내용", "부분", "좀", "한번", "그냥", "음", "어", "아", "저기", "뭐", "그런", "이런", "저런", "아까", "방금", "앞에서",
     "말한", "얘기한", "이야기한", "했던", "하던", "지금", "여기", "거기", "이번", "다음", "슬라이드", "장", "주제", "얘기",
-    "이야기", "설명", "그림", "something",
+    "이야기", "설명", "그림", "something", "자", "그럼", "그러면", "이제", "그리고", "그래서", "일단", "우선",
 }
 PARTICLE_TAIL = re.compile(
     r"(?:에\s*대해서|에\s*대해|에\s*관해서|에\s*관해|을\s*가지고|를\s*가지고|으로|에서|에게|하고|이랑|까지|부터|"
@@ -72,6 +75,15 @@ def clean_topic(raw: str) -> str:
     for _ in range(2):
         t = PARTICLE_TAIL.sub("", t).strip()
     return t
+
+
+def strip_leading_fillers(text: str, max_tokens: int = 3) -> str:
+    """'자 그럼 이제 경사하강법' → '경사하강법'. 직전 문장이 섞이지 않도록 마지막 max_tokens 어절만 남긴다."""
+    toks = [t for t in re.split(r"[\s,]+", normalize(text)) if t]
+    toks = toks[-max_tokens:]
+    while toks and toks[0] in FILLERS:
+        toks.pop(0)
+    return " ".join(toks)
 
 
 def topic_is_sufficient(topic: str) -> bool:
@@ -194,13 +206,12 @@ class RequestDetector:
         return ""
 
     def _find_trigger(self, J: str, p: int) -> Optional[tuple[re.Match, str]]:
-        mm = R_MAKE.search(J, p)
-        mn = R_NEXT.search(J, p)
-        if mm and (not mn or mm.start() <= mn.start()):
-            return mm, "make"
-        if mn:
-            return mn, "next"
-        return None
+        found = [(m, k) for m, k in ((R_MAKE.search(J, p), "make"), (R_NEXT.search(J, p), "next"),
+                                     (R_NEXT_LOOSE.search(J, p), "loose")) if m]
+        if not found:
+            return None
+        order = {"make": 0, "next": 1, "loose": 2}
+        return min(found, key=lambda x: (x[0].start(), order[x[1]]))
 
     def _is_quoted_before(self, J: str, start: int) -> bool:
         sent_start = max(J.rfind(".", 0, start), J.rfind("?", 0, start), J.rfind("!", 0, start)) + 1
@@ -227,8 +238,16 @@ class RequestDetector:
             pre = R_PRE_TOPIC.search(J[sent_start:start])
             comp_end: Optional[int] = None
             topic = None
+            direct = None
+            if not pre and not m.group(0).startswith("다음"):
+                # (b) 'X 슬라이드 부탁해요 / 만들어 주세요' — 바로 앞 명사구(최대 3어절, 채움말 제외)를 주제로
+                d = clean_topic(strip_leading_fillers(J[sent_start:start]))
+                if d and topic_is_sufficient(d):
+                    direct = d
             if pre:
                 topic, comp_end = clean_topic(pre.group(1)), tend
+            elif direct:
+                topic, comp_end = direct, tend
             else:
                 ti = R_TOPIC_IS.search(after)
                 if ti:
@@ -247,6 +266,26 @@ class RequestDetector:
             if quoted_before:
                 return _Outcome("ignored", len(J), reason="quoted")
             return _Outcome("needs_input", len(J), topic=None, reason="topic_missing", trigger="silence")
+
+        if kind == "loose":
+            # 같은 문장(마침표·물음표·느낌표 전) 안에 완료 표현이 있어야 한다. 넘김 발화는 무시.
+            if R_NON_REQUEST_AFTER.match(after):
+                return _Outcome("skip", tend)
+            sent_end = min([i for i in (after.find("."), after.find("?"), after.find("!")) if i >= 0] or [len(after)])
+            c = R_COMPLETE.search(after[:sent_end + 1])
+            if not c:
+                if not force and sent_end == len(after):
+                    return _Outcome("pending", len(J))  # 문장이 다음 STT 구간으로 이어질 수 있음
+                return _Outcome("skip", tend + sent_end)  # 보완 카드 없이 조용히 무시
+            comp_end = tend + c.end()
+            if R_NEGATION.search(J[start:comp_end]):
+                return _Outcome("ignored", comp_end, reason="negated")
+            if quoted_before or R_QUOTE_AFTER.match(J[comp_end:]):
+                return _Outcome("ignored", comp_end, reason="quoted")
+            topic = clean_topic(after[: c.start()])
+            if not topic_is_sufficient(topic):
+                return _Outcome("skip", comp_end)
+            return _Outcome("request", comp_end, topic=topic, trigger="completion")
 
         # kind == "next"
         c = R_COMPLETE.search(after)

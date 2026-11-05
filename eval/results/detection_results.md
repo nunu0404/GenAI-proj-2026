@@ -1,9 +1,9 @@
 # 요청 감지 평가 결과
 
-- 실행 시각: 2026-11-05T12:01:54
-- 표본 수: 40 (규칙 기반 감지기, API 호출 없음, 결정적)
+- 실행 시각: 2026-11-05T14:53:48
+- 표본 수: 53 (규칙 기반 감지기, API 호출 없음, 결정적)
 - 시뮬레이션 조건: 확정 STT 구간 0.8초 간격 입력 후 침묵 2.6초 (REQUEST_SILENCE_MS=2500)
-- 전체 정확도(3분류: request / needs_input / none): **90.0%** (36/40)
+- 전체 정확도(3분류: request / needs_input / none): **92.5%** (49/53)
 - 잘못 생성(정답이 request 가 아닌데 생성): 1건 · 놓친 생성(정답 request 인데 미생성): 0건
 
 ## 범주별
@@ -17,14 +17,16 @@
 | quoted | 4 | 3/4 |
 | ambiguous | 5 | 4/5 |
 | truncated | 4 | 4/4 |
+| added | 6 | 6/6 |
+| added_negative | 7 | 7/7 |
 
 ## 혼동 행렬 (행=정답, 열=예측)
 
 | 정답 \ 예측 | request | needs_input | none | 기타 |
 |---|---|---|---|---|
-| request | 15 | 0 | 0 | 0 |
+| request | 21 | 0 | 0 | 0 |
 | needs_input | 1 | 7 | 0 | 0 |
-| none | 0 | 3 | 14 | 0 |
+| none | 0 | 3 | 21 | 0 |
 
 ## 사례별
 
@@ -70,6 +72,19 @@
 | truncated-02 | truncated | 다음 슬라이드에서는 과적합을 | needs_input | needs_input | 과적합 | ✅ |
 | truncated-03 | truncated | 다음 장에는 손실 함수와 | needs_input | needs_input | 손실 함수 | ✅ |
 | truncated-04 | truncated | 다음 슬라이드에서는 경사하강법 | request | request | 경사하강법 | ✅ |
+| added-01 | added | 다음으로 경사하강법을 설명하겠습니다. | request | request | 경사하강법 | ✅ |
+| added-02 | added | 그다음으로 정규화를 살펴보겠습니다. | request | request | 정규화 | ✅ |
+| added-03 | added | 경사하강법 슬라이드 부탁해요. | request | request | 경사하강법 | ✅ |
+| added-04 | added | 교차 검증 슬라이드 부탁드립니다. | request | request | 교차 검증 | ✅ |
+| added-05 | added | 자 그럼 이제 경사하강법 슬라이드 하나 만들어 주세요. | request | request | 경사하강법 | ✅ |
+| added-06 | added | 다음으로 ▏드롭아웃에 대해 알아볼게요. | request | request | 드롭아웃 | ✅ |
+| added-n01 | added_negative | 다음으로 넘어가겠습니다. | none | none |  | ✅ |
+| added-n02 | added_negative | 다음으로 중요한 점은 데이터의 양입니다. | none | none |  | ✅ |
+| added-n03 | added_negative | 이 방법 다음으로 많이 쓰이는 것은 랜덤 포레스트입니다. | none | none |  | ✅ |
+| added-n04 | added_negative | 슬라이드 부탁드린 거 다들 받으셨나요? | none | none |  | ✅ |
+| added-n05 | added_negative | 여러분이 경사하강법 슬라이드 부탁해요 라고 말하면 만들어집니다. | none | none |  | ✅ |
+| added-n06 | added_negative | 다음으로 경사하강법은 설명하지 않겠습니다. | none | none |  | ✅ |
+| added-n07 | added_negative | 그럼 경사하강법을 한번 봅시다. | none | none |  | ✅ |
 
 ## 오답 분석
 

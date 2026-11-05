@@ -38,3 +38,16 @@
 {"id": "truncated-02", "category": "truncated", "segments": ["다음 슬라이드에서는 과적합을"], "label": "needs_input"}
 {"id": "truncated-03", "category": "truncated", "segments": ["다음 장에는 손실 함수와"], "label": "needs_input"}
 {"id": "truncated-04", "category": "truncated", "segments": ["다음 슬라이드에서는 경사하강법"], "label": "request", "topic_contains": "경사하강법", "note": "명사로 끝난 뒤 침묵 → 설정상 침묵 확정 대상"}
+{"id": "added-01", "category": "added", "segments": ["다음으로 경사하강법을 설명하겠습니다."], "label": "request", "topic_contains": "경사하강법", "note": "2026-11-05 추가 표현"}
+{"id": "added-02", "category": "added", "segments": ["그다음으로 정규화를 살펴보겠습니다."], "label": "request", "topic_contains": "정규화"}
+{"id": "added-03", "category": "added", "segments": ["경사하강법 슬라이드 부탁해요."], "label": "request", "topic_contains": "경사하강법"}
+{"id": "added-04", "category": "added", "segments": ["교차 검증 슬라이드 부탁드립니다."], "label": "request", "topic_contains": "교차 검증"}
+{"id": "added-05", "category": "added", "segments": ["자 그럼 이제 경사하강법 슬라이드 하나 만들어 주세요."], "label": "request", "topic_contains": "경사하강법"}
+{"id": "added-06", "category": "added", "segments": ["다음으로", "드롭아웃에 대해 알아볼게요."], "label": "request", "topic_contains": "드롭아웃"}
+{"id": "added-n01", "category": "added_negative", "segments": ["다음으로 넘어가겠습니다."], "label": "none"}
+{"id": "added-n02", "category": "added_negative", "segments": ["다음으로 중요한 점은 데이터의 양입니다."], "label": "none"}
+{"id": "added-n03", "category": "added_negative", "segments": ["이 방법 다음으로 많이 쓰이는 것은 랜덤 포레스트입니다."], "label": "none"}
+{"id": "added-n04", "category": "added_negative", "segments": ["슬라이드 부탁드린 거 다들 받으셨나요?"], "label": "none"}
+{"id": "added-n05", "category": "added_negative", "segments": ["여러분이 경사하강법 슬라이드 부탁해요 라고 말하면 만들어집니다."], "label": "none"}
+{"id": "added-n06", "category": "added_negative", "segments": ["다음으로 경사하강법은 설명하지 않겠습니다."], "label": "none"}
+{"id": "added-n07", "category": "added_negative", "segments": ["그럼 경사하강법을 한번 봅시다."], "label": "none", "note": "트리거 표현 없음 → 의도적으로 미지원"}

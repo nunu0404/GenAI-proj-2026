@@ -381,7 +381,10 @@ export function Presenter({ sid }: { sid: string }) {
             ) : pendingNoSlide.length > 0 ? (
               <div className="empty">다음 장 기획 중… ({STATUS_LABEL[pendingNoSlide[0].status]})</div>
             ) : (
-              <div className="empty">아직 다음 장이 없습니다. “다음 슬라이드에서는 …을 설명하겠습니다”라고 말해 보세요.</div>
+              <div className="empty">
+                아직 다음 장이 없습니다. 이렇게 말해 보세요: “다음 슬라이드에서는 ○○를 설명하겠습니다”, “다음으로 ○○를
+                살펴보겠습니다”, “○○ 슬라이드 부탁해요”, “다음 장에는 ○○를 보여주세요”.
+              </div>
             )}
           </Panel>
 
