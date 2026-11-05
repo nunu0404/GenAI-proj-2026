@@ -138,3 +138,19 @@ backend/.venv/bin/python eval/latency_probe.py -n 5                          # �
 ```
 
 각 실행 결과는 `eval/results/`에 저장됩니다. 키는 저장하지 않습니다. 이 결과로 위 표의 ❌를 채우고 `docs/DEVLOG.md`에 기록합니다.
+
+## 7. 구독 사용량으로 쓸 수 있는가 (2026-11-05 확인)
+
+| 구성 요소 | 구독 범위 안에서 쓰는 방법 | 비고 |
+|---|---|---|
+| 슬라이드 기획 (Claude) | **Claude Max·Ultra·Team 요금제의 월간 API 크레딧**: Max $100, Ultra $200, Team 좌석당 $20/$100(최대 $500) | claude.ai의 Settings > Billing에서 Console 조직을 연결해 받습니다. 결제 수단 등록은 필요 없습니다. 크레딧이 떨어지면 요금이 청구되지 않고 요청이 멈춥니다. 다음 달로 이월되지 않습니다. 가입 7일 뒤부터 받을 수 있고, **Free·Pro·Enterprise는 대상이 아닙니다** ([API credits for subscribers](https://platform.claude.com/docs/en/about-claude/api-credits-for-subscribers)). 이 앱은 일반 Claude API 호출이므로 코드 변경 없이 그 조직의 API 키를 `.env`에 넣으면 크레딧에서 차감됩니다. |
+| (참고) claude.ai 로그인으로 호출 | 권장하지 않음 | Agent SDK 문서는 “사전 승인 없이 제3자 개발자가 자기 제품에 claude.ai 로그인이나 요금제 사용량을 제공하는 것을 허용하지 않는다”고 명시하고 API 키 인증을 쓰라고 합니다. 또 CLI 프로세스를 거치므로 실시간 응답에도 불리합니다. |
+| 음성 인식·이미지 (OpenAI) | **방법 없음** | ChatGPT 구독에는 API 사용이 포함되지 않고 결제도 분리되어 있습니다 ([OpenAI 도움말](https://help.openai.com/en/articles/6950777-what-is-chatgpt-plus)). |
+
+API 사용료를 줄일 수 있는 대안 (아직 구현하지 않음):
+
+- **음성 인식 → 브라우저 Web Speech API**(Chrome 내장 인식). API 키와 사용료가 들지 않아 예산 가정상 가장 큰 항목인 STT 비용을 없앨 수 있습니다. 대신 다음과 같은 제약이 있습니다.
+  - 음성이 브라우저 공급자(Chrome은 Google)의 서버로 전송됩니다.
+  - 정확도, 구간 분할, 지연을 이 앱이 제어하거나 검증하기 어렵습니다.
+  - 브라우저마다 지원이 다릅니다.
+- **이미지**: 구독 경로가 없으므로 API 비용이 들거나 다른 제공자를 써야 합니다. 현재 기본값(quality low)이 가장 저렴한 설정입니다.
