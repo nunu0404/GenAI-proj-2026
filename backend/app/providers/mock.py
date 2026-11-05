@@ -44,7 +44,13 @@ class MockTextProvider:
             first = re.split(r"[.!?]\s*", ctx.strip())[0][:50]
             bullets.append(f"앞선 설명과 연결: {first}"[:68])
         # 모의 기획: 요청 단어로 형태를 고른다 (실제 모델은 프롬프트 규칙에 따라 판단)
-        if re.search(r"수식|공식|식으로|갱신\s*규칙", req):
+        if re.search(r"표로|표를|비교표", req):
+            vtype = "table"
+        elif re.search(r"그래프|곡선", req):
+            vtype = "chart"
+        elif re.search(r"비교|차이|장단점|vs", req):
+            vtype = "comparison"
+        elif re.search(r"수식|공식|식으로|갱신\s*규칙", req):
             vtype = "equation"
         elif re.search(r"목차|요약|정리|흐름", req):
             vtype = "text"
@@ -57,6 +63,16 @@ class MockTextProvider:
             "bullets": bullets,
             "visual_type": vtype,
             "equations": equations,
+            "comparison": {"left": {"title": "[MOCK] 과적합", "points": ["학습 오차가 작음", "검증 오차가 큼"]},
+                           "right": {"title": "[MOCK] 과소적합", "points": ["학습 오차도 큼", "모델이 너무 단순함"]}}
+            if vtype == "comparison" else None,
+            "table": {"columns": ["방법", "핵심 아이디어", "주의점"],
+                      "rows": [["L1 규제", "가중치 절댓값 합", "희소한 해"], ["L2 규제", "가중치 제곱합", "작은 가중치"],
+                               ["드롭아웃", "뉴런 무작위 제외", "학습 시에만"]]} if vtype == "table" else None,
+            "chart": {"kind": "function", "x_label": "x", "y_label": "출력",
+                      "functions": [{"expr": "sigmoid(x)", "label": "시그모이드"}, {"expr": "tanh(x)", "label": "tanh"}],
+                      "x_min": -6, "x_max": 6, "categories": [], "series": [], "note": "[MOCK] 모의 그래프"}
+            if vtype == "chart" else None,
             "visual_intent": f"{topic} 을(를) 일상적 상황으로 보여주는 그림" if vtype == "illustration" else "",
             "image_prompt": f"An educational illustration explaining: {topic}" if vtype == "illustration" else "",
             "speaker_notes": "[MOCK] 모의 생성 결과입니다. 실제 LLM 출력이 아닙니다.",

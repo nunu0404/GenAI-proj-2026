@@ -113,6 +113,8 @@ class Database:
         cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(slides)").fetchall()}
         if "equations" not in cols:
             self._conn.execute("ALTER TABLE slides ADD COLUMN equations TEXT NOT NULL DEFAULT '[]'")
+        if "visual" not in cols:
+            self._conn.execute("ALTER TABLE slides ADD COLUMN visual TEXT NOT NULL DEFAULT 'null'")
 
     def close(self) -> None:
         with self._lock:
@@ -207,10 +209,11 @@ class Database:
         pos = (pos_row["p"] if pos_row else -1) + 1
         self._exec(
             "INSERT INTO slides(id,session_id,position,layout,status,title,bullets,job_id,image_alt,image_prompt,"
-            "text_model,speaker_notes,precision_warning,equations,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "text_model,speaker_notes,precision_warning,equations,visual,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (slide_id, sid, pos, layout, status, title, json.dumps(bullets or [], ensure_ascii=False), job_id,
              extra.get("image_alt"), extra.get("image_prompt"), extra.get("text_model"), extra.get("speaker_notes"),
-             extra.get("precision_warning"), json.dumps(extra.get("equations") or [], ensure_ascii=False), now, now),
+             extra.get("precision_warning"), json.dumps(extra.get("equations") or [], ensure_ascii=False),
+             json.dumps(extra.get("visual"), ensure_ascii=False), now, now),
         )
         return self.get_slide(slide_id)  # type: ignore[return-value]
 
@@ -219,6 +222,7 @@ class Database:
         if s:
             s["bullets"] = json.loads(s["bullets"])
             s["equations"] = json.loads(s.get("equations") or "[]")
+            s["visual"] = json.loads(s.get("visual") or "null")
         return s
 
     def list_slides(self, sid: str, include_cancelled: bool = False) -> list[dict]:
@@ -229,17 +233,18 @@ class Database:
         for r in rows:
             r["bullets"] = json.loads(r["bullets"])
             r["equations"] = json.loads(r.get("equations") or "[]")
+            r["visual"] = json.loads(r.get("visual") or "null")
         return rows
 
     def update_slide(self, slide_id: str, **fields: Any) -> None:
         allowed = {"status", "title", "bullets", "image_path", "image_alt", "image_prompt", "image_model",
-                   "text_model", "speaker_notes", "precision_warning", "error", "layout", "equations"}
+                   "text_model", "speaker_notes", "precision_warning", "error", "layout", "equations", "visual"}
         cols, vals = [], []
         for k, v in fields.items():
             if k not in allowed:
                 raise ValueError(k)
             cols.append(f"{k}=?")
-            vals.append(json.dumps(v, ensure_ascii=False) if k in ("bullets", "equations") else v)
+            vals.append(json.dumps(v, ensure_ascii=False) if k in ("bullets", "equations", "visual") else v)
         cols.append("updated_at=?")
         vals.append(time.time())
         vals.append(slide_id)

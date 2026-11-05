@@ -23,9 +23,12 @@ class JobStatus(str, Enum):
 ACTIVE_JOB_STATUSES = {JobStatus.queued, JobStatus.planning, JobStatus.text_ready, JobStatus.generating_image}
 TERMINAL_JOB_STATUSES = {JobStatus.ready, JobStatus.failed, JobStatus.cancelled}
 
-SlideLayout = Literal["cover", "title_bullets_image", "title_bullets_equation", "title_bullets"]
-VisualType = Literal["illustration", "equation", "text"]
-LAYOUT_BY_VISUAL = {"illustration": "title_bullets_image", "equation": "title_bullets_equation", "text": "title_bullets"}
+SlideLayout = Literal["cover", "title_bullets_image", "title_bullets_equation", "title_bullets",
+                      "title_comparison", "title_table", "title_chart"]
+VisualType = Literal["illustration", "equation", "text", "comparison", "table", "chart"]
+LAYOUT_BY_VISUAL = {"illustration": "title_bullets_image", "equation": "title_bullets_equation", "text": "title_bullets",
+                    "comparison": "title_comparison", "table": "title_table", "chart": "title_chart"}
+STRUCTURED_VISUALS = ("comparison", "table", "chart")
 EQUATIONS_MAX = 3
 LATEX_MAX = 300
 EQ_CAPTION_MAX = 80
@@ -88,6 +91,120 @@ BULLET_MAX = 70
 BULLETS_MIN, BULLETS_MAX = 2, 3
 
 
+def _clean(t: Any) -> Any:
+    return repair_escapes(t).strip() if isinstance(t, str) else t
+
+
+def _chk_len(name: str, t: str, lo: int, hi: int) -> None:
+    if not (lo <= len(t) <= hi):
+        raise ValueError(f"{name} 길이는 {lo}~{hi}자여야 합니다 (현재 {len(t)})")
+
+
+class CompareSide(BaseModel):
+    title: str
+    points: list[str]
+
+    @model_validator(mode="after")
+    def _check(self) -> "CompareSide":
+        self.title = _clean(self.title)
+        self.points = [_clean(p) for p in self.points if _clean(p)]
+        _chk_len("비교 제목", self.title, 1, 24)
+        if not (1 <= len(self.points) <= 4):
+            raise ValueError("비교 항목은 한쪽에 1~4개여야 합니다")
+        for p in self.points:
+            _chk_len("비교 항목", p, 1, 50)
+        return self
+
+
+class ComparisonSpec(BaseModel):
+    left: CompareSide
+    right: CompareSide
+
+
+class TableSpec(BaseModel):
+    columns: list[str]
+    rows: list[list[str]]
+
+    @model_validator(mode="after")
+    def _check(self) -> "TableSpec":
+        self.columns = [_clean(c) for c in self.columns]
+        self.rows = [[_clean(c) for c in r] for r in self.rows]
+        if not (2 <= len(self.columns) <= 4):
+            raise ValueError("표의 열은 2~4개여야 합니다")
+        if not (2 <= len(self.rows) <= 6):
+            raise ValueError("표의 행은 2~6개여야 합니다")
+        for c in self.columns:
+            _chk_len("열 제목", c, 1, 20)
+        for r in self.rows:
+            if len(r) != len(self.columns):
+                raise ValueError("각 행의 칸 수는 열 수와 같아야 합니다")
+            for c in r:
+                _chk_len("표 칸", c, 1, 40)
+        return self
+
+
+class FunctionCurve(BaseModel):
+    expr: str
+    label: str
+
+
+class ChartSeries(BaseModel):
+    name: str
+    values: list[float]
+
+
+class ChartSpec(BaseModel):
+    kind: Literal["function", "line", "bar"]
+    x_label: str = ""
+    y_label: str = ""
+    functions: list[FunctionCurve] = Field(default_factory=list)
+    x_min: Optional[float] = None
+    x_max: Optional[float] = None
+    categories: list[str] = Field(default_factory=list)
+    series: list[ChartSeries] = Field(default_factory=list)
+    note: str = ""
+
+    @model_validator(mode="after")
+    def _check(self) -> "ChartSpec":
+        from .chartmath import ExprError, sample  # 지연 import (순환 방지)
+        self.x_label, self.y_label, self.note = _clean(self.x_label), _clean(self.y_label), _clean(self.note)
+        _chk_len("x축 이름", self.x_label, 0, 24)
+        _chk_len("y축 이름", self.y_label, 0, 24)
+        _chk_len("그래프 주석", self.note, 0, 60)
+        if self.kind == "function":
+            if not (1 <= len(self.functions) <= 3):
+                raise ValueError("함수 그래프는 함수식이 1~3개여야 합니다")
+            if self.x_min is None or self.x_max is None or not (self.x_min < self.x_max) or self.x_max - self.x_min > 1e4:
+                raise ValueError("함수 그래프는 x_min < x_max 인 x 범위가 필요합니다")
+            for f in self.functions:
+                f.label = _clean(f.label)
+                _chk_len("곡선 이름", f.label, 1, 24)
+                try:
+                    sample(f.expr, self.x_min, self.x_max)
+                except ExprError as e:
+                    raise ValueError(str(e)) from e
+            self.categories, self.series = [], []
+        else:
+            if not (2 <= len(self.categories) <= 10):
+                raise ValueError("막대/선 그래프는 항목(categories)이 2~10개여야 합니다")
+            self.categories = [_clean(c) for c in self.categories]
+            for c in self.categories:
+                _chk_len("항목 이름", c, 1, 14)
+            if not (1 <= len(self.series) <= 3):
+                raise ValueError("막대/선 그래프는 계열(series)이 1~3개여야 합니다")
+            for sr in self.series:
+                sr.name = _clean(sr.name)
+                _chk_len("계열 이름", sr.name, 1, 20)
+                if len(sr.values) != len(self.categories):
+                    raise ValueError("계열 값 개수는 항목 수와 같아야 합니다")
+                if any(not (abs(v) < 1e9) for v in sr.values):
+                    raise ValueError("그래프 값이 너무 큽니다")
+            if not self.note:
+                raise ValueError("막대/선 그래프는 note 에 수치 출처(강의에서 언급한 값) 또는 '설명용 예시 값'을 적어야 합니다")
+            self.functions, self.x_min, self.x_max = [], None, None
+        return self
+
+
 class SlideSpec(BaseModel):
     """LLM이 반환해야 하는 슬라이드 명세. 필드 타입·개수·길이를 검증한다."""
 
@@ -95,6 +212,9 @@ class SlideSpec(BaseModel):
     bullets: list[str] = Field(default_factory=list)
     visual_type: VisualType = "illustration"
     equations: list[EquationItem] = Field(default_factory=list)
+    comparison: Optional[ComparisonSpec] = None
+    table: Optional[TableSpec] = None
+    chart: Optional[ChartSpec] = None
     visual_intent: str = ""
     image_prompt: str = ""
     speaker_notes: str = ""
@@ -126,8 +246,9 @@ class SlideSpec(BaseModel):
             return self
         if not (1 <= len(self.title) <= TITLE_MAX):
             raise ValueError(f"title 길이는 1~{TITLE_MAX}자여야 합니다 (현재 {len(self.title)})")
-        if not (BULLETS_MIN <= len(self.bullets) <= BULLETS_MAX):
-            raise ValueError(f"bullets 는 {BULLETS_MIN}~{BULLETS_MAX}개여야 합니다 (현재 {len(self.bullets)})")
+        lo = 1 if self.visual_type in STRUCTURED_VISUALS else BULLETS_MIN  # 비교·표·그래프는 핵심 문장 1개부터
+        if not (lo <= len(self.bullets) <= BULLETS_MAX):
+            raise ValueError(f"bullets 는 {lo}~{BULLETS_MAX}개여야 합니다 (현재 {len(self.bullets)})")
         for i, b in enumerate(self.bullets):
             if any(cmd in b for cmd in _LATEX_FORBIDDEN):
                 raise ValueError(f"bullets[{i}] 에 허용되지 않는 명령이 있습니다")
@@ -143,6 +264,11 @@ class SlideSpec(BaseModel):
         elif self.visual_type == "equation":
             if not (1 <= len(self.equations) <= EQUATIONS_MAX):
                 raise ValueError(f"수식형(equation)은 equations 가 1~{EQUATIONS_MAX}개여야 합니다 (현재 {len(self.equations)})")
+        elif self.visual_type in STRUCTURED_VISUALS and getattr(self, self.visual_type) is None:
+            raise ValueError(f"{self.visual_type} 형태는 {self.visual_type} 데이터가 필요합니다")
+        for vt in STRUCTURED_VISUALS:
+            if self.visual_type != vt:
+                setattr(self, vt, None)
         if self.visual_type != "equation":
             self.equations = []
         if self.visual_type != "illustration":
@@ -158,11 +284,40 @@ SLIDE_SPEC_JSON_SCHEMA: dict = {
     "properties": {
         "title": {"type": "string"},
         "bullets": {"type": "array", "items": {"type": "string"}},
-        "visual_type": {"type": "string", "enum": ["illustration", "equation", "text"]},
+        "visual_type": {"type": "string", "enum": ["illustration", "equation", "text", "comparison", "table", "chart"]},
         "equations": {"type": "array", "items": {
             "type": "object",
             "properties": {"latex": {"type": "string"}, "caption": {"type": "string"}},
             "required": ["latex", "caption"], "additionalProperties": False}},
+        "comparison": {"anyOf": [{"type": "null"}, {
+            "type": "object",
+            "properties": {side: {"type": "object", "properties": {"title": {"type": "string"},
+                                                                    "points": {"type": "array", "items": {"type": "string"}}},
+                                  "required": ["title", "points"], "additionalProperties": False}
+                           for side in ("left", "right")},
+            "required": ["left", "right"], "additionalProperties": False}]},
+        "table": {"anyOf": [{"type": "null"}, {
+            "type": "object",
+            "properties": {"columns": {"type": "array", "items": {"type": "string"}},
+                           "rows": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}}},
+            "required": ["columns", "rows"], "additionalProperties": False}]},
+        "chart": {"anyOf": [{"type": "null"}, {
+            "type": "object",
+            "properties": {
+                "kind": {"type": "string", "enum": ["function", "line", "bar"]},
+                "x_label": {"type": "string"}, "y_label": {"type": "string"},
+                "functions": {"type": "array", "items": {
+                    "type": "object", "properties": {"expr": {"type": "string"}, "label": {"type": "string"}},
+                    "required": ["expr", "label"], "additionalProperties": False}},
+                "x_min": {"type": ["number", "null"]}, "x_max": {"type": ["number", "null"]},
+                "categories": {"type": "array", "items": {"type": "string"}},
+                "series": {"type": "array", "items": {
+                    "type": "object", "properties": {"name": {"type": "string"},
+                                                     "values": {"type": "array", "items": {"type": "number"}}},
+                    "required": ["name", "values"], "additionalProperties": False}},
+                "note": {"type": "string"}},
+            "required": ["kind", "x_label", "y_label", "functions", "x_min", "x_max", "categories", "series", "note"],
+            "additionalProperties": False}]},
         "visual_intent": {"type": "string"},
         "image_prompt": {"type": "string"},
         "speaker_notes": {"type": "string"},
@@ -171,7 +326,8 @@ SLIDE_SPEC_JSON_SCHEMA: dict = {
         "precision_warning": {"type": ["string", "null"]},
     },
     "required": [
-        "title", "bullets", "visual_type", "equations", "visual_intent", "image_prompt", "speaker_notes",
+        "title", "bullets", "visual_type", "equations", "comparison", "table", "chart",
+        "visual_intent", "image_prompt", "speaker_notes",
         "needs_clarification", "clarification_reason", "precision_warning",
     ],
     "additionalProperties": False,
@@ -182,6 +338,8 @@ class SlideEdit(BaseModel):
     title: Optional[str] = None
     bullets: Optional[list[str]] = None
     equations: Optional[list[EquationItem]] = None
+    comparison: Optional[ComparisonSpec] = None
+    table: Optional[TableSpec] = None
 
     @model_validator(mode="after")
     def _check(self) -> "SlideEdit":

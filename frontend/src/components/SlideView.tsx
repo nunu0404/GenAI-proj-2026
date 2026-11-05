@@ -1,6 +1,7 @@
 import katex from "katex";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Equation, Slide } from "../api";
+import { ChartPanel, ComparisonPanel, TablePanel } from "./Visuals";
 import { STATUS_LABEL } from "../api";
 
 interface Props {
@@ -64,6 +65,38 @@ export function SlideView({ slide, presenterHints, onOverflow, onRendered, class
   }
 
   const pending = slide.status !== "ready";
+
+  if ((slide.layout === "title_comparison" || slide.layout === "title_table" || slide.layout === "title_chart") && slide.visual) {
+    const v = slide.visual;
+    return (
+      <div className={`slide slide-sv sv-${v.type} ${className ?? ""}`} style={style}>
+        <div className="tbi-head" ref={titleRef}>
+          <h2 className="tbi-title">{slide.title}</h2>
+        </div>
+        <div className="sv-main" ref={eqRef}>
+          {v.type === "comparison" && <ComparisonPanel v={v} />}
+          {v.type === "table" && <TablePanel v={v} />}
+          {v.type === "chart" && <ChartPanel v={v} />}
+        </div>
+        <div className="sv-take" ref={textRef}>
+          <ul className="tbi-bullets">
+            {slide.bullets.map((b, i) => (
+              <li key={i}>
+                <MathText text={b} />
+              </li>
+            ))}
+          </ul>
+        </div>
+        {presenterHints && (pending || overflow || slide.is_mock) && (
+          <div className="slide-hints">
+            {pending && <span className={`chip st-${slide.status}`}>{STATUS_LABEL[slide.status]}</span>}
+            {overflow && <span className="chip warn">내용 넘침</span>}
+            {slide.is_mock && <span className="chip mock">MOCK</span>}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (slide.layout === "title_bullets" || slide.layout === "title_bullets_equation") {
     const isEq = slide.layout === "title_bullets_equation";

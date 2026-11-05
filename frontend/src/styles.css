@@ -113,6 +113,47 @@ label { display: grid; gap: 4px; font-weight: 500; }
 .img-placeholder.quiet { background: var(--s-soft); }
 .shimmer { background: linear-gradient(100deg, #e8efee 30%, #f6f9f8 50%, #e8efee 70%); background-size: 300% 100%; animation: shimmer 1.6s linear infinite; }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+/* 비교·표·그래프형: 제목 / 큰 시각 요소 / 하단 핵심 요약 */
+.slide { --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --ink: #1f2a3c; --ink-2: #5b6472; --grid: #e4e0d4; }
+.slide-sv { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; row-gap: 2cqw; padding: 3.6cqw 4.4cqw 3.4cqw; }
+.sv-main { min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.sv-take { overflow: hidden; max-height: 11cqw; border-top: 1px solid #e6e2d6; padding-top: 1.2cqw; }
+.sv-take .tbi-bullets { gap: 0.5em; }
+.sv-take .tbi-bullets li { font-size: 1.85em; line-height: 1.4; }
+/* 좌우 비교 */
+.cmp { position: relative; width: 100%; max-height: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 6cqw; align-items: stretch; }
+.cmp-card { background: #fff; border: 1px solid #e6e2d6; border-radius: 1.2cqw; padding: 2.4em 2.6em 2.8em; display: flex; flex-direction: column; gap: 1.6em; min-height: 0; }
+.cmp-title { margin: 0; font-size: 2.6em; color: var(--s-title); display: flex; align-items: center; gap: 0.5em; }
+.cmp-swatch { width: 0.5em; height: 1.2em; border-radius: 3px; flex: none; }
+.cmp-swatch.s1 { background: var(--c1); } .cmp-swatch.s2 { background: var(--c2); }
+.cmp-points { margin: 0; padding: 0; list-style: none; display: grid; gap: 1em; }
+.cmp-points li { font-size: 2.2em; line-height: 1.4; padding-left: 1.2em; position: relative; color: var(--ink); }
+.cmp-points li::before { content: ""; position: absolute; left: 0; top: 0.6em; width: 0.4em; height: 0.4em; border-radius: 50%; background: #9aa3b2; }
+.cmp-vs { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 4.4cqw; height: 4.4cqw; border-radius: 50%;
+  background: var(--s-title); color: #fff; font-weight: 800; font-size: 1.6em; display: grid; place-items: center; }
+/* 표 */
+.stable { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 1.95em; color: var(--ink); border-radius: 1cqw; overflow: hidden;
+  border: 1px solid #e6e2d6; }
+.stable th { background: var(--s-title); color: #fff; font-weight: 700; text-align: left; padding: 0.7em 0.9em; }
+.stable td { padding: 0.65em 0.9em; border-top: 1px solid #ece8dd; line-height: 1.35; vertical-align: top; }
+.stable tbody tr:nth-child(even) td { background: #f3f1ea; }
+.stable tbody tr td:first-child { font-weight: 700; }
+/* 그래프 */
+.chart { margin: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; min-height: 0; }
+.chart svg { width: 100%; height: 100%; min-height: 0; flex: 1; }
+.chart .ch-grid { stroke: var(--grid); stroke-width: 1; }
+.chart .ch-zero { stroke: #b9b4a6; stroke-width: 1.5; }
+.chart .ch-axis { stroke: #8d8a80; stroke-width: 1.5; }
+.chart .ch-tick { fill: var(--ink-2); font-size: 15px; }
+.chart .ch-label { fill: var(--ink-2); font-size: 16px; font-weight: 600; }
+.chart .ch-direct, .chart .ch-legend text { fill: var(--ink); font-size: 16px; }
+.chart .ch-line { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.chart .ch-dot { stroke: var(--s-bg); stroke-width: 2; }
+.chart .ch-hit { fill: transparent; }
+.chart .ch-bar:hover, .chart .ch-dot:hover { opacity: .85; }
+.chart .fill-s1 { fill: var(--c1); } .chart .fill-s2 { fill: var(--c2); } .chart .fill-s3 { fill: var(--c3); }
+.chart .stroke-s1 { stroke: var(--c1); } .chart .stroke-s2 { stroke: var(--c2); } .chart .stroke-s3 { stroke: var(--c3); }
+.ch-note { font-size: 1.45em; color: var(--ink-2); margin-top: 0.3em; }
 /* 수식형: 왼쪽 핵심 문장, 오른쪽 수식 패널 */
 .slide-tbe { display: grid; grid-template-columns: 42% 1fr; grid-template-rows: auto minmax(0, 1fr);
   column-gap: 3cqw; row-gap: 2.4cqw; padding: 3.8cqw 4.4cqw 4cqw; }
@@ -216,6 +257,7 @@ label { display: grid; gap: 4px; font-weight: 500; }
 .modal { background: var(--surface); border-radius: 12px; padding: 16px; width: min(520px, 100%); display: grid; gap: 10px; }
 .modal h3 { margin: 0; }
 .eq-edit { display: grid; gap: 8px; }
+.cmp-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .eq-edit-row { display: grid; gap: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
 .eq-preview { background: var(--s-soft); border-radius: 8px; padding: 8px; color: var(--s-title); }
 .eq-preview .eq-math { font-size: 1.2em; }

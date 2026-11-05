@@ -605,6 +605,17 @@ function EditDialog({ sid, slide, onClose }: { sid: string; slide: Slide; onClos
   const [title, setTitle] = useState(slide.title);
   const [bullets, setBullets] = useState(slide.bullets.join("\n"));
   const isEq = slide.layout === "title_bullets_equation";
+  const vis = slide.visual;
+  const [cmp, setCmp] = useState(() =>
+    vis?.type === "comparison"
+      ? { lt: vis.left.title, lp: vis.left.points.join("\n"), rt: vis.right.title, rp: vis.right.points.join("\n") }
+      : null,
+  );
+  // 표: 첫 줄은 열 제목, 칸은 | 로 구분
+  const [tbl, setTbl] = useState(() =>
+    vis?.type === "table" ? [vis.columns, ...vis.rows].map((r) => r.join(" | ")).join("\n") : null,
+  );
+  const lines = (t: string) => t.split("\n").map((x) => x.trim()).filter(Boolean);
   const [eqs, setEqs] = useState<Equation[]>(slide.equations?.length ? slide.equations : [{ latex: "", caption: "" }]);
   const [err, setErr] = useState<string | null>(null);
   const setEq = (i: number, patch: Partial<Equation>) => setEqs((list) => list.map((e, k) => (k === i ? { ...e, ...patch } : e)));
@@ -614,6 +625,13 @@ function EditDialog({ sid, slide, onClose }: { sid: string; slide: Slide; onClos
         title,
         bullets: bullets.split("\n").map((b) => b.trim()).filter(Boolean),
         ...(isEq ? { equations: eqs.filter((e) => e.latex.trim()) } : {}),
+        ...(cmp ? { comparison: { left: { title: cmp.lt, points: lines(cmp.lp) }, right: { title: cmp.rt, points: lines(cmp.rp) } } } : {}),
+        ...(tbl !== null
+          ? (() => {
+              const [head, ...rows] = lines(tbl).map((r) => r.split("|").map((c) => c.trim()));
+              return { table: { columns: head ?? [], rows } };
+            })()
+          : {}),
       });
       onClose();
     } catch (e) {
@@ -632,6 +650,32 @@ function EditDialog({ sid, slide, onClose }: { sid: string; slide: Slide; onClos
           핵심 문장 (한 줄에 하나, 최대 3개, 각 70자)
           <textarea rows={4} value={bullets} onChange={(e) => setBullets(e.target.value)} />
         </label>
+        {cmp && (
+          <div className="eq-edit">
+            <div className="muted small">좌우 비교 (항목은 한 줄에 하나, 한쪽 최대 4개)</div>
+            <div className="cmp-edit">
+              <label>
+                왼쪽 제목
+                <input value={cmp.lt} maxLength={24} onChange={(e) => setCmp({ ...cmp, lt: e.target.value })} />
+                <textarea rows={4} value={cmp.lp} onChange={(e) => setCmp({ ...cmp, lp: e.target.value })} />
+              </label>
+              <label>
+                오른쪽 제목
+                <input value={cmp.rt} maxLength={24} onChange={(e) => setCmp({ ...cmp, rt: e.target.value })} />
+                <textarea rows={4} value={cmp.rp} onChange={(e) => setCmp({ ...cmp, rp: e.target.value })} />
+              </label>
+            </div>
+          </div>
+        )}
+        {tbl !== null && (
+          <label>
+            표 (첫 줄은 열 제목, 칸은 | 로 구분 · 열 2~4개, 행 2~6개)
+            <textarea rows={7} value={tbl} onChange={(e) => setTbl(e.target.value)} />
+          </label>
+        )}
+        {vis?.type === "chart" && (
+          <div className="muted small">그래프는 강의 요청으로 다시 생성해 주세요 (식·데이터 직접 편집은 아직 지원하지 않음).</div>
+        )}
         {isEq && (
           <div className="eq-edit">
             <div className="muted small">수식 (LaTeX, $ 없이 · 최대 3개) — 아래 미리보기로 확인하세요</div>

@@ -33,6 +33,7 @@ def serialize_slide(slide: dict, audience: bool = False) -> dict:
         "image_url": image_url(slide),
         "image_alt": slide.get("image_alt") or "",
         "equations": slide.get("equations") or [],
+        "visual": slide.get("visual"),
     }
     if audience:
         return base

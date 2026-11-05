@@ -8,7 +8,40 @@ export type JobStatus =
   | "cancelled"
   | "needs_input";
 
-export type Layout = "cover" | "title_bullets_image" | "title_bullets_equation" | "title_bullets";
+export type Layout =
+  | "cover"
+  | "title_bullets_image"
+  | "title_bullets_equation"
+  | "title_bullets"
+  | "title_comparison"
+  | "title_table"
+  | "title_chart";
+
+export interface ComparisonVisual {
+  type: "comparison";
+  left: { title: string; points: string[] };
+  right: { title: string; points: string[] };
+}
+export interface TableVisual {
+  type: "table";
+  columns: string[];
+  rows: string[][];
+}
+export interface ChartVisual {
+  type: "chart";
+  kind: "function" | "line" | "bar";
+  x_label: string;
+  y_label: string;
+  functions: { expr: string; label: string }[];
+  x_min: number | null;
+  x_max: number | null;
+  categories: string[];
+  series: { name: string; values: number[] }[];
+  note: string;
+  /** 함수 그래프: 서버가 계산한 좌표 */
+  computed?: { label: string; points: (number | null)[][] }[];
+}
+export type Visual = ComparisonVisual | TableVisual | ChartVisual;
 
 export interface Equation {
   latex: string;
@@ -26,6 +59,7 @@ export interface Slide {
   image_url: string | null;
   image_alt: string;
   equations: Equation[];
+  visual: Visual | null;
   // presenter 전용
   job_id?: string | null;
   image_prompt?: string | null;
@@ -128,7 +162,17 @@ export const api = {
   retry: (sid: string, jid: string) => req("POST", `/api/sessions/${sid}/jobs/${jid}/retry`),
   clarify: (sid: string, jid: string, text: string) => req("POST", `/api/sessions/${sid}/jobs/${jid}/clarify`, { text }),
   dismiss: (sid: string, jid: string) => req("POST", `/api/sessions/${sid}/jobs/${jid}/dismiss`),
-  editSlide: (sid: string, slideId: string, body: { title?: string; bullets?: string[]; equations?: Equation[] }) =>
+  editSlide: (
+    sid: string,
+    slideId: string,
+    body: {
+      title?: string;
+      bullets?: string[];
+      equations?: Equation[];
+      comparison?: Omit<ComparisonVisual, "type">;
+      table?: Omit<TableVisual, "type">;
+    },
+  ) =>
     req("PATCH", `/api/sessions/${sid}/slides/${slideId}`, body),
   finalizeWithoutImage: (sid: string, slideId: string) =>
     req("POST", `/api/sessions/${sid}/slides/${slideId}/finalize-without-image`),

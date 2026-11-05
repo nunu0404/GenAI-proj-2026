@@ -22,7 +22,8 @@ from .metrics import estimate_cost
 from .planner import PlanError, PlanResult, compose_image_prompt, plan_slide
 from .providers.base import ImageProvider, ImageResult, ProviderError, TextProvider, Usage
 from .providers.image_validation import EXT
-from .schemas import LAYOUT_BY_VISUAL, JobStatus, SlideEdit
+from .chartmath import sample as sample_function
+from .schemas import LAYOUT_BY_VISUAL, JobStatus, SlideEdit, SlideSpec
 
 log = logging.getLogger("nextslide.runtime")
 
@@ -390,7 +391,8 @@ class SessionRuntime:
                 title=spec.title, bullets=spec.bullets, job_id=jid, image_alt=spec.visual_intent,
                 image_prompt=compose_image_prompt(spec.image_prompt) if needs_image else None,
                 text_model=self.text.model, speaker_notes=spec.speaker_notes,
-                precision_warning=spec.precision_warning, equations=[e.model_dump() for e in spec.equations])
+                precision_warning=spec.precision_warning, equations=[e.model_dump() for e in spec.equations],
+                visual=build_visual(spec))
             text_ms = round((time.monotonic() - tm["confirmed"]) * 1000, 1)
             self.db.update_job(jid, slide_id=slide["id"],
                                status=JobStatus.text_ready.value if needs_image else JobStatus.ready.value)
@@ -575,6 +577,10 @@ class SessionRuntime:
             fields["bullets"] = edit.bullets
         if edit.equations is not None:
             fields["equations"] = [e.model_dump() for e in edit.equations]
+        if edit.comparison is not None and (sl.get("visual") or {}).get("type") == "comparison":
+            fields["visual"] = {"type": "comparison", **edit.comparison.model_dump()}
+        if edit.table is not None and (sl.get("visual") or {}).get("type") == "table":
+            fields["visual"] = {"type": "table", **edit.table.model_dump()}
         if fields:
             self.db.update_slide(slide_id, **fields)
             await self.emit_slide(slide_id)
@@ -596,6 +602,21 @@ class SessionRuntime:
         j = self.db.get_job(jid)
         if j and j["session_id"] == self.sid and "client_render_ms" not in j["metrics"]:
             self.db.merge_job_metrics(jid, client_render_ms=round(render_ms, 1))
+
+
+def build_visual(spec: SlideSpec) -> Optional[dict]:
+    """비교·표·그래프 데이터를 화면용 구조로 만든다. 함수 그래프 좌표는 서버가 계산한다."""
+    if spec.visual_type == "comparison" and spec.comparison:
+        return {"type": "comparison", **spec.comparison.model_dump()}
+    if spec.visual_type == "table" and spec.table:
+        return {"type": "table", **spec.table.model_dump()}
+    if spec.visual_type == "chart" and spec.chart:
+        c = spec.chart.model_dump()
+        if spec.chart.kind == "function":
+            c["computed"] = [{"label": f.label, "points": sample_function(f.expr, spec.chart.x_min, spec.chart.x_max)}
+                             for f in spec.chart.functions]
+        return {"type": "chart", **c}
+    return None
 
 
 class Registry:
