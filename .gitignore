@@ -1,0 +1,11 @@
+backend/.venv/
+backend/.env
+backend/data/
+frontend/node_modules/
+frontend/dist/
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+eval/results/context_ab_*/images/
+frontend/tsconfig.tsbuildinfo

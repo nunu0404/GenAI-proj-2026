@@ -1,0 +1,202 @@
+"""실제 제공자 어댑터의 '계약 테스트' — 공식 문서에 기술된 요청/응답 형식을 흉내 낸 로컬 가짜 서버를 사용한다.
+
+⚠ 실제 API 호출 검증이 아니다. 어댑터가 문서대로 요청을 만들고 응답·오류를 처리하는지만 확인한다.
+"""
+import asyncio
+import base64
+import json
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+import pytest
+import websockets
+
+from app.providers import openai_stt
+from app.providers.base import ProviderError
+from app.providers.mock import render_mock_png
+
+# ------------------------------------------------------------------ Realtime 전사 (WebSocket)
+
+
+@pytest.mark.asyncio
+async def test_openai_stt_adapter_against_fake_realtime(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-fake")
+    received: list[dict] = []
+    headers_seen: list[str] = []
+    conn_count = 0
+
+    async def handler(ws):
+        nonlocal conn_count
+        conn_count += 1
+        headers_seen.append(ws.request.headers.get("Authorization", ""))
+        item_no = 0
+        async for raw in ws:
+            msg = json.loads(raw)
+            received.append(msg)
+            if msg["type"] == "input_audio_buffer.commit":
+                item_no += 1
+                item = f"item_{conn_count}_{item_no}"
+                await ws.send(json.dumps({"type": "input_audio_buffer.committed", "item_id": item}))
+                await ws.send(json.dumps({"type": "conversation.item.input_audio_transcription.delta", "item_id": item, "delta": "다음 "}))
+                await ws.send(json.dumps({"type": "conversation.item.input_audio_transcription.delta", "item_id": item, "delta": "슬라이드"}))
+                done = {"type": "conversation.item.input_audio_transcription.completed", "item_id": item, "transcript": "다음 슬라이드"}
+                await ws.send(json.dumps(done))
+                await ws.send(json.dumps(done))  # 중복 완료 이벤트
+                if conn_count == 1:
+                    await ws.close()  # 연결 끊김 → 재연결 확인
+
+    server = await websockets.serve(handler, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    monkeypatch.setattr(openai_stt, "URL", f"ws://127.0.0.1:{port}/v1/realtime?intent=transcription")
+
+    events = []
+
+    async def on_event(ev):
+        events.append(ev)
+
+    p = openai_stt.OpenAISttProvider("gpt-live-transcribe", ["ko"], "low", 24000, max_reconnects=2)
+    await p.start(on_event)
+    await p.send_audio(b"\x01\x00" * 480)
+    await p.commit("v1")
+    for _ in range(100):
+        if any(e.type == "status" and e.state == "ready" for e in events[2:]):
+            break
+        await asyncio.sleep(0.05)
+    await p.send_audio(b"\x02\x00" * 480)
+    await p.commit("v2")
+    for _ in range(100):
+        if sum(1 for e in events if e.type == "final") >= 2:
+            break
+        await asyncio.sleep(0.05)
+    await p.close()
+    server.close()
+
+    su = received[0]
+    assert su["type"] == "session.update"
+    assert su["session"]["type"] == "transcription"
+    inp = su["session"]["audio"]["input"]
+    assert inp["format"] == {"type": "audio/pcm", "rate": 24000}
+    assert inp["transcription"]["model"] == "gpt-live-transcribe" and inp["transcription"]["languages"] == ["ko"]
+    assert inp["turn_detection"] is None
+    app = next(m for m in received if m["type"] == "input_audio_buffer.append")
+    assert base64.b64decode(app["audio"]) == b"\x01\x00" * 480
+    assert headers_seen[0] == "Bearer sk-fake"
+    finals = [e for e in events if e.type == "final"]
+    assert len(finals) == 2  # 중복 completed 무시
+    assert finals[0].local_segment == "v1" and finals[1].local_segment == "v2"
+    assert finals[0].segment_id != finals[1].segment_id  # 연결 번호 포함으로 ID 충돌 없음
+    partials = [e.text for e in events if e.type == "partial"]
+    assert partials[:2] == ["다음 ", "다음 슬라이드"]
+    assert any(e.type == "status" and e.state == "reconnecting" for e in events)
+    assert conn_count == 2
+
+
+# ------------------------------------------------------------------ HTTP 스텁 (Messages / Images)
+
+
+class Stub:
+    def __init__(self):
+        self.requests: list[tuple[str, dict, dict]] = []
+        self.responses: list[tuple[int, dict]] = []
+        stub = self
+
+        class H(BaseHTTPRequestHandler):
+            def do_POST(self):  # noqa: N802
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                stub.requests.append((self.path, {k.lower(): v for k, v in self.headers.items()}, body))
+                code, resp = stub.responses.pop(0)
+                data = json.dumps(resp).encode()
+                self.send_response(code)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+            def log_message(self, *a):
+                pass
+
+        self.httpd = HTTPServer(("127.0.0.1", 0), H)
+        self.port = self.httpd.server_address[1]
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+
+    def close(self):
+        self.httpd.shutdown()
+
+
+@pytest.fixture
+def stub():
+    s = Stub()
+    yield s
+    s.close()
+
+
+def _msg(text, stop="end_turn"):
+    return {"id": "msg_1", "type": "message", "role": "assistant", "model": "claude-opus-5-5", "stop_reason": stop,
+            "stop_sequence": None, "content": [{"type": "text", "text": text}] if text is not None else [],
+            "usage": {"input_tokens": 321, "output_tokens": 123}}
+
+
+@pytest.mark.asyncio
+async def test_anthropic_adapter_request_shape_and_errors(stub, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-fake")
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", f"http://127.0.0.1:{stub.port}")
+    from app.providers.anthropic_text import AnthropicTextProvider
+    p = AnthropicTextProvider("claude-opus-5-5", effort="low", timeout_s=10)
+    stub.responses.append((200, _msg('{"title":"x"}')))
+    res = await p.complete_json("SYS", "USER", {"type": "object"})
+    path, headers, body = stub.requests[-1]
+    assert path.startswith("/v1/messages")
+    assert body["model"] == "claude-opus-5-5"
+    assert body["output_config"] == {"effort": "low", "format": {"type": "json_schema", "schema": {"type": "object"}}}
+    assert body["fallbacks"] == "default"
+    assert "server-side-fallback-2026-07-01" in headers.get("anthropic-beta", "")
+    assert "thinking" not in body and "temperature" not in body
+    assert res.raw_text == '{"title":"x"}' and res.usage.input_tokens == 321 and res.usage.output_tokens == 123
+    stub.responses.append((200, _msg(None, stop="refusal")))
+    with pytest.raises(ProviderError) as e:
+        await p.complete_json("S", "U", {})
+    assert e.value.code == "refused" and e.value.usage.input_tokens == 321
+    stub.responses.append((401, {"type": "error", "error": {"type": "authentication_error", "message": "bad key"}}))
+    with pytest.raises(ProviderError) as e:
+        await p.complete_json("S", "U", {})
+    assert e.value.code == "auth"
+
+
+@pytest.mark.asyncio
+async def test_openai_image_adapter_request_shape_and_validation(stub, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-fake")
+    monkeypatch.setenv("OPENAI_BASE_URL", f"http://127.0.0.1:{stub.port}/v1")
+    from app.providers.openai_image import OpenAIImageProvider
+    p = OpenAIImageProvider("gpt-image-2", "1536x864", "medium", "png", timeout_s=10, max_bytes=20_000_000)
+    good = base64.b64encode(render_mock_png("a", "1536x864")).decode()
+    usage = {"input_tokens": 50, "output_tokens": 4000, "total_tokens": 4050,
+             "input_tokens_details": {"text_tokens": 50, "image_tokens": 0}}
+    stub.responses.append((200, {"created": 1, "data": [{"b64_json": good}], "usage": usage}))
+    img = await p.generate("PROMPT")
+    path, headers, body = stub.requests[-1]
+    assert path == "/v1/images/generations"
+    assert body["model"] == "gpt-image-2" and body["size"] == "1536x864" and body["quality"] == "medium"
+    assert body["output_format"] == "png" and body["n"] == 1
+    assert headers["authorization"] == "Bearer sk-fake"
+    assert (img.width, img.height, img.mime) == (1536, 864, "image/png") and img.usage.output_tokens == 4000
+    # 이미지 없음
+    stub.responses.append((200, {"created": 1, "data": [], "usage": usage}))
+    with pytest.raises(ProviderError) as e:
+        await p.generate("P")
+    assert e.value.code == "no_image" and e.value.usage is not None
+    # 잘못된 형식 (텍스트를 base64 로)
+    stub.responses.append((200, {"created": 1, "data": [{"b64_json": base64.b64encode(b"<html>" * 400).decode()}]}))
+    with pytest.raises(ProviderError) as e:
+        await p.generate("P")
+    assert e.value.code == "bad_format"
+    # 안전 정책 거절
+    stub.responses.append((400, {"error": {"message": "Your request was rejected by the safety system.",
+                                           "type": "image_generation_user_error", "code": "moderation_blocked"}}))
+    with pytest.raises(ProviderError) as e:
+        await p.generate("P")
+    assert e.value.code == "refused"
+    # 서버 오류 → 재시도 가능
+    stub.responses.append((503, {"error": {"message": "unavailable", "type": "server_error"}}))
+    with pytest.raises(ProviderError) as e:
+        await p.generate("P")
+    assert e.value.retryable

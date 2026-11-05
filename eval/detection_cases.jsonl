@@ -1,0 +1,40 @@
+{"id": "clear-01", "category": "clear", "segments": ["다음 슬라이드에서는 과적합을 시험 문제를 외운 학생에 비유해서 설명하겠습니다."], "label": "request", "topic_contains": "과적합"}
+{"id": "clear-02", "category": "clear", "segments": ["다음 장에는 결정 트리 예시를 보여주세요."], "label": "request", "topic_contains": "결정 트리"}
+{"id": "clear-03", "category": "clear", "segments": ["슬라이드를 만들어 주세요. 주제는 교차 검증입니다."], "label": "request", "topic_contains": "교차 검증"}
+{"id": "clear-04", "category": "clear", "segments": ["그럼 이제 다음 슬라이드에서 활성화 함수를 소개할게요."], "label": "request", "topic_contains": "활성화 함수"}
+{"id": "clear-05", "category": "clear", "segments": ["다음 장에서는 CNN 구조를 그림으로 보여드릴게요."], "label": "request", "topic_contains": "CNN"}
+{"id": "clear-06", "category": "clear", "segments": ["다음슬라이드에서는 드롭아웃을 설명하겠습니다"], "label": "request", "topic_contains": "드롭아웃"}
+{"id": "clear-07", "category": "clear", "segments": ["다음 장에서는 배치 정규화를 다뤄볼게요."], "label": "request", "topic_contains": "배치 정규화"}
+{"id": "clear-08", "category": "clear", "segments": ["드롭아웃에 대한 슬라이드를 만들어 주세요."], "label": "request", "topic_contains": "드롭아웃"}
+{"id": "clear-09", "category": "clear", "segments": ["편향은 모델이 너무 단순할 때 생기는 오차입니다. 다음 슬라이드에서는 분산을 설명하겠습니다."], "label": "request", "topic_contains": "분산"}
+{"id": "clear-10", "category": "clear", "segments": ["다음 슬라이드에서는, 음, 학습률이 너무 크면 어떻게 되는지 보여주세요."], "label": "request", "topic_contains": "학습률"}
+{"id": "split-01", "category": "split", "segments": ["다음 슬라이드에서는", "과적합을 시험 문제를 외운 학생에 비유해서", "설명하겠습니다."], "label": "request", "topic_contains": "시험 문제"}
+{"id": "split-02", "category": "split", "segments": ["다음", "슬라이드에서는 경사하강법을 산에서 내려오는 사람에 비유해 설명하겠습니다."], "label": "request", "topic_contains": "경사하강법"}
+{"id": "split-03", "category": "split", "segments": ["슬라이드를 만들어 주세요.", "주제는 정규화입니다."], "label": "request", "topic_contains": "정규화"}
+{"id": "split-04", "category": "split", "segments": ["자 그러면", "다음 장에는 혼동 행렬을", "보여주세요."], "label": "request", "topic_contains": "혼동 행렬"}
+{"id": "normal-01", "category": "normal", "segments": ["과적합은 학습 데이터에 지나치게 맞춰져서 새로운 데이터에는 잘 대응하지 못하는 현상입니다."], "label": "none"}
+{"id": "normal-02", "category": "normal", "segments": ["다음 슬라이드를 보시면 그래프가 있습니다."], "label": "none"}
+{"id": "normal-03", "category": "normal", "segments": ["자 다음 장으로 넘어가겠습니다."], "label": "none"}
+{"id": "normal-04", "category": "normal", "segments": ["다음 슬라이드로 넘어가서 설명을 이어가겠습니다."], "label": "none"}
+{"id": "normal-05", "category": "normal", "segments": ["이 슬라이드에서 가장 중요한 건 일반화입니다."], "label": "none"}
+{"id": "normal-06", "category": "normal", "segments": ["다음 페이지에 있는 표를 보시면 됩니다."], "label": "none"}
+{"id": "normal-07", "category": "normal", "segments": ["지난 시간에 다음 장 내용을 미리 읽어 오라고 했죠."], "label": "none"}
+{"id": "normal-08", "category": "normal", "segments": ["슬라이드가 조금 작게 보이면 말씀해 주세요."], "label": "none"}
+{"id": "negated-01", "category": "negated", "segments": ["다음 슬라이드는 만들지 마세요."], "label": "none"}
+{"id": "negated-02", "category": "negated", "segments": ["다음 슬라이드를 만들지 말고 칠판에 설명하겠습니다."], "label": "none"}
+{"id": "negated-03", "category": "negated", "segments": ["다음 슬라이드는 필요 없어요."], "label": "none"}
+{"id": "negated-04", "category": "negated", "segments": ["다음 슬라이드에서는 과적합을 설명하지 않고 바로 실습하겠습니다."], "label": "none"}
+{"id": "negated-05", "category": "negated", "segments": ["슬라이드를 만들지 마세요. 주제는 정규화입니다."], "label": "none"}
+{"id": "quoted-01", "category": "quoted", "segments": ["여러분이 '다음 슬라이드에서는 과적합을 설명하겠습니다'라고 말하면 시스템이 슬라이드를 만듭니다."], "label": "none"}
+{"id": "quoted-02", "category": "quoted", "segments": ["예를 들어 다음 슬라이드에서는 과적합을 설명하겠습니다 라고 하면 됩니다."], "label": "none"}
+{"id": "quoted-03", "category": "quoted", "segments": ["제가 다음 장에는 그래프를 보여주세요라고 하면 그래프가 나옵니다."], "label": "none"}
+{"id": "quoted-04", "category": "quoted", "segments": ["이 시스템은 다음 슬라이드에서는 무엇을 설명하겠습니다 같은 문장을 인식합니다."], "label": "none"}
+{"id": "ambiguous-01", "category": "ambiguous", "segments": ["다음 슬라이드에서는 이거 설명하겠습니다."], "label": "needs_input"}
+{"id": "ambiguous-02", "category": "ambiguous", "segments": ["다음 슬라이드에서는 아까 말한 거 설명할게요."], "label": "needs_input"}
+{"id": "ambiguous-03", "category": "ambiguous", "segments": ["다음 장에는 그 내용을 보여주세요."], "label": "needs_input"}
+{"id": "ambiguous-04", "category": "ambiguous", "segments": ["다음 슬라이드에서는 그거, 아까 그 예시 설명할게요."], "label": "needs_input"}
+{"id": "ambiguous-05", "category": "ambiguous", "segments": ["슬라이드를 만들어 주세요."], "label": "needs_input"}
+{"id": "truncated-01", "category": "truncated", "segments": ["다음 슬라이드에서는"], "label": "needs_input"}
+{"id": "truncated-02", "category": "truncated", "segments": ["다음 슬라이드에서는 과적합을"], "label": "needs_input"}
+{"id": "truncated-03", "category": "truncated", "segments": ["다음 장에는 손실 함수와"], "label": "needs_input"}
+{"id": "truncated-04", "category": "truncated", "segments": ["다음 슬라이드에서는 경사하강법"], "label": "request", "topic_contains": "경사하강법", "note": "명사로 끝난 뒤 침묵 → 설정상 침묵 확정 대상"}
