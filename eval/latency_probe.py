@@ -40,8 +40,17 @@ async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("-n", type=int, default=5)
     ap.add_argument("--allow-mock", action="store_true")
+    ap.add_argument("--quality", choices=["low", "medium", "high"], help="IMAGE_QUALITY 덮어쓰기 (비교 측정용)")
+    ap.add_argument("--text-model", help="ANTHROPIC_TEXT_MODEL 덮어쓰기 (비교 측정용)")
+    ap.add_argument("--effort", choices=["low", "medium", "high"], help="TEXT_EFFORT 덮어쓰기")
     args = ap.parse_args()
     s = Settings()
+    if args.quality:
+        s.image_quality = args.quality
+    if args.text_model:
+        s.anthropic_text_model = args.text_model
+    if args.effort:
+        s.text_effort = args.effort
     s.data_dir = Path(tempfile.mkdtemp(prefix="nextslide_probe_"))
     text, image = make_text_provider(s), make_image_provider(s)
     mock = text.is_mock or image.is_mock
@@ -59,15 +68,19 @@ async def main() -> None:
         while db.get_job(jid)["status"] not in ("ready", "failed", "cancelled", "needs_input"):
             await asyncio.sleep(0.1)
         j = db.get_job(jid)
+        m = j["metrics"]
         print(f"[{i+1}/{args.n}] {j['status']} {j.get('error_code') or ''} "
-              f"text={j['metrics'].get('confirm_to_text_ready_ms')}ms image={j['metrics'].get('image_ms')}ms "
-              f"total={j['metrics'].get('confirm_to_ready_ms')}ms")
+              f"text={m.get('confirm_to_text_ready_ms')}ms image={m.get('image_ms')}ms total={m.get('confirm_to_ready_ms')}ms "
+              f"| text tok in/out={m.get('text_input_tokens')}/{m.get('text_output_tokens')} "
+              f"img tok in/out={m.get('image_input_tokens')}/{m.get('image_output_tokens')} "
+              f"cost≈${(m.get('text_cost_estimate_usd') or 0) + (m.get('image_cost_estimate_usd') or 0):.4f}")
     summary = summarize_jobs(db.list_jobs(sess["id"], limit=1000), db.list_usage(sess["id"]))
     summary["meta"] = {"created": datetime.now().isoformat(timespec="seconds"), "mock": mock, "text_model": text.model,
                        "image_model": image.model, "image_size": s.image_size, "image_quality": s.image_quality,
-                       "text_effort": s.text_effort, "path": "text input (force) — 발화 종료 기준 지연 계산 불가"}
+                       "image_format": s.image_format, "text_effort": s.text_effort, "text_thinking": s.text_thinking or "(생략)",
+                       "cost_note": "비용은 응답 토큰 × 환경변수 단가로 계산한 추정치이며 실제 청구액이 아님", "path": "text input (force) — 발화 종료 기준 지연 계산 불가"}
     summary["jobs"] = [{k: j[k] for k in ("status", "error_code", "error_message", "metrics")} for j in db.list_jobs(sess["id"])]
-    tag = "mock" if mock else f"{text.name}-{image.name}"
+    tag = "mock" if mock else f"{text.model}-{image.model}-{s.image_quality}"
     out = ROOT / "eval" / "results" / f"latency_{tag}_{datetime.now():%Y%m%d_%H%M%S}.json"
     if mock:
         out = Path(s.data_dir) / out.name  # mock 결과는 결과 폴더에 남기지 않는다

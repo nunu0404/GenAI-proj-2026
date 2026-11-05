@@ -162,6 +162,7 @@ label { display: grid; gap: 4px; font-weight: 500; }
 .transcript { margin-top: 8px; max-height: 200px; overflow-y: auto; display: grid; gap: 4px; font-size: 13px; }
 .transcript p { margin: 0; }
 .transcript .sim { border-left: 3px solid var(--line); padding-left: 6px; }
+.transcript .late { color: var(--muted); text-decoration: underline dotted; }
 .transcript .partial { color: var(--muted); font-style: italic; }
 .pending-flag { color: #23577a; font-size: 12px; }
 .job { border-top: 1px solid var(--line); padding: 8px 0; }

@@ -142,6 +142,8 @@ class MockSttProvider:
         if self._on:
             await self._on(SttEvent("notice", local_segment=local_segment,
                                     message=f"[모의 STT] 음성 구간 감지됨 ({secs:.1f}초) — 전사는 STT_PROVIDER=openai 에서만 동작"))
+            # 순서 보정 대기열이 막히지 않도록 빈 확정 결과로 구간을 닫는다(자막·감지에는 반영되지 않음)
+            await self._on(SttEvent("final", segment_id=f"mock-{local_segment}", text="", local_segment=local_segment))
 
     async def close(self) -> None:
         if self._on:

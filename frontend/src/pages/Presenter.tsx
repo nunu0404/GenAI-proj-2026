@@ -330,14 +330,25 @@ export function Presenter({ sid }: { sid: string }) {
                 </button>
               )}
               <span className={`vad ${state.vadSpeaking ? "on" : ""}`} title="음성 구간 감지">
-                {state.vadSpeaking ? "말하는 중" : micOn ? "듣는 중" : "꺼짐"}
+                {!micOn
+                  ? "꺼짐"
+                  : state.stt.state === "connecting" || state.stt.state === "reconnecting"
+                    ? "STT 연결 중"
+                    : state.stt.state === "error"
+                      ? "STT 오류"
+                      : state.vadSpeaking
+                        ? "말하는 중"
+                        : state.stt.state === "degraded"
+                          ? "STT 경고"
+                          : "듣는 중"}
               </span>
               <span className="muted small">{state.stt.message}</span>
             </div>
             {micErr && <div className="err">{micErr}</div>}
             <div className="transcript" aria-live="polite">
               {state.utterances.slice(-10).map((u) => (
-                <p key={`${u.id}-${u.segment_id}`} className={u.source === "simulated" ? "sim" : ""}>
+                <p key={`${u.id}-${u.segment_id}`} className={`${u.source === "simulated" ? "sim" : ""} ${u.late ? "late" : ""}`}
+                  title={u.late ? "순서가 어긋나 늦게 도착한 구간 — 요청 감지에는 사용하지 않음" : undefined}>
                   {u.text}
                 </p>
               ))}

@@ -45,18 +45,28 @@ class Settings:
     vad_min_speech_ms: int = field(default_factory=lambda: int(_env("VAD_MIN_SPEECH_MS", "250")))
     vad_max_segment_ms: int = field(default_factory=lambda: int(_env("VAD_MAX_SEGMENT_MS", "12000")))
     vad_preroll_ms: int = field(default_factory=lambda: int(_env("VAD_PREROLL_MS", "300")))
+    # 전사 완료 순서 보정: 앞 구간 결과를 기다리는 최대 시간(뒤 구간이 이미 도착한 경우) / 결과 자체를 기다리는 최대 시간
+    stt_reorder_timeout_ms: int = field(default_factory=lambda: int(_env("STT_REORDER_TIMEOUT_MS", "3000")))
+    stt_result_timeout_ms: int = field(default_factory=lambda: int(_env("STT_RESULT_TIMEOUT_MS", "10000")))
+    # session.update 후 서버의 session.updated(설정 승인)를 기다리는 시간
+    stt_session_ack_timeout_s: float = field(default_factory=lambda: float(_env("STT_SESSION_ACK_TIMEOUT_S", "10")))
 
-    # --- 텍스트(슬라이드 기획) ---
-    anthropic_text_model: str = field(default_factory=lambda: _env("ANTHROPIC_TEXT_MODEL", "claude-opus-5-5"))
+    # --- 텍스트(슬라이드 기획) --- 기본값은 임시 설정(실측 후 결정). 실시간·저비용 우선으로 Haiku 5.5.
+    anthropic_text_model: str = field(default_factory=lambda: _env("ANTHROPIC_TEXT_MODEL", "claude-haiku-5-5"))
     text_effort: str = field(default_factory=lambda: _env("TEXT_EFFORT", "low"))
+    # thinking: 비우면 요청에서 생략(모델 기본 = adaptive). 'disabled' 는 모델·effort 가 허용할 때만 전송.
+    text_thinking: str = field(default_factory=lambda: _env("TEXT_THINKING", "").lower())
+    text_max_tokens: int = field(default_factory=lambda: int(_env("TEXT_MAX_TOKENS", "4000")))
     text_timeout_s: float = field(default_factory=lambda: float(_env("TEXT_TIMEOUT_S", "60")))
     text_max_repair: int = field(default_factory=lambda: int(_env("TEXT_MAX_REPAIR", "1")))
+    # 서버 측 refusal fallback. 지원 모델(opus-5-5, sonnet-5-5, fable 등)에서만 전송. Haiku 5.5 는 미지원.
     text_use_fallbacks: bool = field(default_factory=lambda: _env("TEXT_USE_FALLBACKS", "true").lower() == "true")
 
     # --- 이미지 ---
     openai_image_model: str = field(default_factory=lambda: _env("OPENAI_IMAGE_MODEL", "gpt-image-2"))
     image_size: str = field(default_factory=lambda: _env("IMAGE_SIZE", "1536x864"))
-    image_quality: str = field(default_factory=lambda: _env("IMAGE_QUALITY", "medium"))
+    # 임시 기본값 low: 문서상 빠른 초안용·최저가. 실측 후 medium 과 비교해 결정.
+    image_quality: str = field(default_factory=lambda: _env("IMAGE_QUALITY", "low"))
     image_format: str = field(default_factory=lambda: _env("IMAGE_FORMAT", "jpeg"))
     image_timeout_s: float = field(default_factory=lambda: float(_env("IMAGE_TIMEOUT_S", "150")))
     image_max_retries: int = field(default_factory=lambda: int(_env("IMAGE_MAX_RETRIES", "1")))
@@ -94,9 +104,10 @@ class Settings:
         return {
             "stt": {"provider": self.stt_provider, "model": self.openai_stt_model if self.stt_provider == "openai" else "mock",
                     "sample_rate": self.stt_sample_rate, "encoding": "pcm_s16le", "channels": 1},
-            "text": {"provider": self.text_provider, "model": self.anthropic_text_model if self.text_provider == "anthropic" else "mock"},
+            "text": {"provider": self.text_provider, "model": self.anthropic_text_model if self.text_provider == "anthropic" else "mock",
+                     "effort": self.text_effort},
             "image": {"provider": self.image_provider, "model": self.openai_image_model if self.image_provider == "openai" else "mock",
-                      "size": self.image_size},
+                      "size": self.image_size, "quality": self.image_quality, "format": self.image_format},
             "mock": {
                 "stt": self.stt_provider == "mock",
                 "text": self.text_provider == "mock",

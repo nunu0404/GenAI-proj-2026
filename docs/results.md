@@ -4,11 +4,13 @@
 
 **전제: 이 저장소는 실제 API 자격증명 없이 개발했습니다.** 아래 결과 중 실제 API 호출 결과는 없습니다. mock 실행 결과는 성능 수치로 보고하지 않습니다.
 
+> 모델 선택 근거, 과금 경로, 단계별 검증 수준(모델명, 계정 권한, 실제 호출, 전체 동작)은 [model-cost-decision.md](model-cost-decision.md)에 있습니다. 2026-11-05 리뷰에서 지적된 음성 처리 문제 3건(전사 순서, 최소 발화 길이, 설정 승인 전 ready 표시)을 고쳤습니다.
+
 ## 1. 실행한 테스트
 
 | 항목 | 결과 | 비고 |
 |---|---|---|
-| 백엔드 자동 테스트 (`pytest`) | **47개 통과** (약 4초) | mock 제공자 주입, 실제 API 호출 없음 |
+| 백엔드 자동 테스트 (`pytest`) | **59개 통과** (약 9초) | mock 제공자 주입, 실제 API 호출 없음 |
 | 프런트엔드 타입 검사와 빌드 | 통과 | `tsc -b`, `vite build` |
 | 브라우저 E2E (헤드리스 Chrome, mock) | 통과 | 아래 항목 참고 |
 | 오디오 리샘플러 검증 (실제 Chrome AudioWorklet) | 통과 | 아래 항목 참고 |
@@ -32,6 +34,10 @@
 | 대기열 상한 | `test_runtime::test_queue_limit` (실행 1개, 대기 3개, 5번째 거부) |
 | 자동 전환 조건 | `test_runtime::test_auto_advance_only_when_enabled_and_presenting` |
 | 오디오 형식 거부와 VAD 구간 | `test_api_ws::test_mic_wrong_format_rejected_and_vad_segments` |
+| 최소 발화 길이 (짧은 잡음은 STT로 보내지 않음) | `test_stt_stream::test_short_noise_is_not_sent_or_committed`, `test_noise_bursts_shorter_than_min_speech_never_reach_stt` |
+| 전사 완료 순서 보정 / 실패·시간 초과 건너뛰기 / 늦은 결과는 감지 제외 | `test_stt_stream::test_out_of_order_finals_are_delivered_in_commit_order`, `test_failed_head_segment_is_skipped_immediately`, `test_missing_head_times_out_and_late_result_skips_detection`, `test_hard_timeout_when_no_result_at_all` |
+| STT 설정 승인(`session.updated`) 후에만 ready, 거부·시간 초과·불일치 설정은 실패 | `test_provider_contracts::test_openai_stt_not_ready_without_ack`, `test_openai_stt_rejected_config_is_error`, `test_openai_stt_mismatched_effective_session_is_error`, `test_openai_stt_failed_segment_and_lost_on_disconnect` |
+| 모델별로 허용되는 옵션만 전송 (Haiku에는 fallback 없음) | `test_provider_contracts::test_anthropic_haiku_sends_only_supported_options`, `test_request_options_reject_invalid_combinations` |
 | 구조화 출력 검증과 제한적 복구 | `test_planner_and_images::*` (재요청 1회 상한, 불릿 초과 절단, 길이 초과 거부) |
 | 이미지 검증 | `test_planner_and_images::test_image_validation` (MIME, 크기, 깨진 데이터, 비율) |
 | 키 미노출, 경로 조작 방지 | `test_api_ws::test_config_never_exposes_keys`, `test_image_path_traversal_rejected` |
@@ -119,8 +125,8 @@ backend/.venv/bin/python eval/latency_probe.py -n 5
 | 항목 | 상태 | 확인 방법 |
 |---|---|---|
 | OpenAI Realtime 전사 실제 연결 (`gpt-live-transcribe`, `languages`, `delay`, `turn_detection: null`) | 문서 기준 구현, 가짜 서버 계약 테스트만 수행 | `STT_PROVIDER=openai`로 마이크 시작 |
-| Claude 실제 호출 (`claude-opus-5-5`, `output_config.format`, `fallbacks: "default"` beta) | 문서와 SDK 시그니처 기준 구현, 가짜 서버 계약 테스트 | `TEXT_PROVIDER=anthropic`. 계정에서 fallback beta가 거부되면 `TEXT_USE_FALLBACKS=false` |
-| `gpt-image-2`의 사용자 지정 크기 1536x864 | 문서상 규칙(16배수, 비율, 픽셀 수)은 만족하지만 이 모델에서 실제로 받아들이는지는 미확인 | 거부되면 `IMAGE_SIZE=1536x1024`. 비율 검증 기준도 자동으로 그 크기를 따름 |
+| Claude 실제 호출 (임시 기본 `claude-haiku-5-5`, effort low, `output_config.format`) | 문서와 SDK 시그니처 기준 구현, 가짜 서버 계약 테스트 | `eval/check_providers.py --text` |
+| `gpt-image-2`의 사용자 지정 크기 1536x864, quality low | 문서에 “gpt-image-2는 조건을 만족하는 어떤 해상도든 받는다”고 명시. 실제 계정에서는 미확인 | 거부되면 `IMAGE_SIZE=1536x1024`. 비율 검증 기준도 자동으로 그 크기를 따름 |
 | 실제 생성 지연, 실패 형태, 비용 | 미측정 | `eval/latency_probe.py` |
 | 한국어 STT 정확도, VAD 임계값(450)의 적절성 | 미측정 | 실제 마이크와 강의실에서 `VAD_RMS_THRESHOLD` 조정 |
 | 실제 마이크 캡처 (브라우저) | 헤드리스 Chrome에서는 이 환경의 `getUserMedia`가 응답하지 않아 자동화하지 못함. 리샘플러와 서버 오디오 경로는 각각 따로 검증 | 일반 Chrome에서 직접 확인 |

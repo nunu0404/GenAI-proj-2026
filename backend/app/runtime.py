@@ -138,10 +138,13 @@ class SessionRuntime:
         await self.hub.broadcast(self.sid, "transcript.partial", {"segment_id": segment_id, "text": text})
 
     async def handle_final(self, segment_id: str, text: str, source: str,
-                           speech_end_mono: Optional[float] = None) -> None:
+                           speech_end_mono: Optional[float] = None, received_mono: Optional[float] = None,
+                           feed_detector: bool = True) -> None:
+        """확정 발화 처리. received_mono: 확정 결과가 서버에 도착한 시각(순서 보정으로 늦게 전달돼도 실제 수신 시각).
+        feed_detector=False: 순서가 어긋나 늦게 온 구간 → 기록·자막에만 반영."""
         self.ensure_started()
         text = (text or "").strip()
-        now_mono = time.monotonic()
+        now_mono = received_mono if received_mono is not None else time.monotonic()
         if not text:
             await self.hub.broadcast(self.sid, "transcript.final", {"segment_id": segment_id, "text": "", "empty": True})
             return
@@ -152,7 +155,10 @@ class SessionRuntime:
         if speech_end_mono is not None:
             self.seg_speech_end[segment_id] = speech_end_mono
         await self.hub.broadcast(self.sid, "transcript.final",
-                                 {"segment_id": segment_id, "text": text, "utterance_id": uid, "source": source})
+                                 {"segment_id": segment_id, "text": text, "utterance_id": uid, "source": source,
+                                  "late": not feed_detector})
+        if not feed_detector:
+            return
         evs = self.detector.feed_final(segment_id, text, now_mono)
         if evs:
             await self._on_detector_events(evs)
@@ -357,8 +363,13 @@ class SessionRuntime:
                 self._log_usage(jid, u, "used")
             if self._is_cancelled(jid):
                 return
-            self.db.merge_job_metrics(jid, planning_repairs=plan.repairs, local_fixes=plan.local_fixes,
-                                      text_model=self.text.model)
+            costs = [estimate_cost(self.s, u) for u in plan.usages]
+            self.db.merge_job_metrics(
+                jid, planning_repairs=plan.repairs, local_fixes=plan.local_fixes, text_model=self.text.model,
+                text_settings=plan.usages[-1].settings if plan.usages else {},
+                text_input_tokens=sum(u.input_tokens or 0 for u in plan.usages),
+                text_output_tokens=sum(u.output_tokens or 0 for u in plan.usages),
+                text_cost_estimate_usd=round(sum(costs), 6) if costs and all(c is not None for c in costs) else None)
             spec = plan.spec
             if spec.needs_clarification:
                 self.db.update_job(jid, status=JobStatus.needs_input.value,
@@ -412,9 +423,13 @@ class SessionRuntime:
             return
         self._log_usage(jid, img.usage, "used")
         now = time.monotonic()
+        img_cost = estimate_cost(self.s, img.usage)
         m: dict[str, Any] = {"image_ms": round((now - t_img) * 1000, 1),
                              "confirm_to_ready_ms": round((now - tm["confirmed"]) * 1000, 1),
-                             "image_model": self.image.model, "image_size": f"{img.width}x{img.height}"}
+                             "image_model": self.image.model, "image_size": f"{img.width}x{img.height}",
+                             "image_settings": img.usage.settings, "image_bytes": len(img.data),
+                             "image_input_tokens": img.usage.input_tokens, "image_output_tokens": img.usage.output_tokens,
+                             "image_cost_estimate_usd": round(img_cost, 6) if img_cost is not None else None}
         if "speech_end" in tm:
             m["vad_speech_end_to_ready_ms"] = round((now - tm["speech_end"]) * 1000, 1)
         self.db.merge_job_metrics(jid, **m)

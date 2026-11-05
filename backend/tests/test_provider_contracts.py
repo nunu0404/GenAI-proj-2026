@@ -17,10 +17,46 @@ from app.providers.mock import render_mock_png
 
 # ------------------------------------------------------------------ Realtime 전사 (WebSocket)
 
+PROXY_VARS = ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "WS_PROXY", "WSS_PROXY",
+              "http_proxy", "https_proxy", "all_proxy", "ws_proxy", "wss_proxy")
+
+
+@pytest.fixture(autouse=True)
+def _no_proxy_for_local_fakes(monkeypatch):
+    """로컬 가짜 서버로 가는 요청이 사용자 환경의 프록시를 타지 않게 한다."""
+    for v in PROXY_VARS:
+        monkeypatch.delenv(v, raising=False)
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+
+
+def _ack(update: dict) -> str:
+    """문서: session.update 가 적용되면 실제 반영된 설정 전체를 담아 session.updated 를 보낸다."""
+    return json.dumps({"type": "session.updated", "session": update["session"]})
+
+
+async def _start_fake(handler):
+    server = await websockets.serve(handler, "127.0.0.1", 0)
+    return server, server.sockets[0].getsockname()[1]
+
+
+def _provider(monkeypatch, port, ack_timeout=2.0):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-fake")
+    monkeypatch.setattr(openai_stt, "URL", f"ws://127.0.0.1:{port}/v1/realtime?intent=transcription")
+    return openai_stt.OpenAISttProvider("gpt-live-transcribe", ["ko"], "low", 24000, max_reconnects=2,
+                                        ack_timeout_s=ack_timeout)
+
+
+async def _until(pred, timeout=5.0):
+    for _ in range(int(timeout / 0.05)):
+        if pred():
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError("timeout")
+
 
 @pytest.mark.asyncio
 async def test_openai_stt_adapter_against_fake_realtime(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-fake")
     received: list[dict] = []
     headers_seen: list[str] = []
     conn_count = 0
@@ -33,6 +69,8 @@ async def test_openai_stt_adapter_against_fake_realtime(monkeypatch):
         async for raw in ws:
             msg = json.loads(raw)
             received.append(msg)
+            if msg["type"] == "session.update":
+                await ws.send(_ack(msg))
             if msg["type"] == "input_audio_buffer.commit":
                 item_no += 1
                 item = f"item_{conn_count}_{item_no}"
@@ -45,29 +83,23 @@ async def test_openai_stt_adapter_against_fake_realtime(monkeypatch):
                 if conn_count == 1:
                     await ws.close()  # 연결 끊김 → 재연결 확인
 
-    server = await websockets.serve(handler, "127.0.0.1", 0)
-    port = server.sockets[0].getsockname()[1]
-    monkeypatch.setattr(openai_stt, "URL", f"ws://127.0.0.1:{port}/v1/realtime?intent=transcription")
-
+    server, port = await _start_fake(handler)
     events = []
 
     async def on_event(ev):
         events.append(ev)
 
-    p = openai_stt.OpenAISttProvider("gpt-live-transcribe", ["ko"], "low", 24000, max_reconnects=2)
+    p = _provider(monkeypatch, port)
     await p.start(on_event)
+    states = [e.state for e in events if e.type == "status"]
+    assert states == ["connecting", "ready"]  # 승인(session.updated) 후에만 ready
+    assert p.effective_session["type"] == "transcription"
     await p.send_audio(b"\x01\x00" * 480)
     await p.commit("v1")
-    for _ in range(100):
-        if any(e.type == "status" and e.state == "ready" for e in events[2:]):
-            break
-        await asyncio.sleep(0.05)
+    await _until(lambda: [e.state for e in events if e.type == "status"].count("ready") >= 2)
     await p.send_audio(b"\x02\x00" * 480)
     await p.commit("v2")
-    for _ in range(100):
-        if sum(1 for e in events if e.type == "final") >= 2:
-            break
-        await asyncio.sleep(0.05)
+    await _until(lambda: sum(1 for e in events if e.type == "final") >= 2)
     await p.close()
     server.close()
 
@@ -76,8 +108,9 @@ async def test_openai_stt_adapter_against_fake_realtime(monkeypatch):
     assert su["session"]["type"] == "transcription"
     inp = su["session"]["audio"]["input"]
     assert inp["format"] == {"type": "audio/pcm", "rate": 24000}
-    assert inp["transcription"]["model"] == "gpt-live-transcribe" and inp["transcription"]["languages"] == ["ko"]
-    assert inp["turn_detection"] is None
+    assert inp["transcription"] == {"model": "gpt-live-transcribe", "languages": ["ko"], "delay": "low"}
+    assert "language" not in inp["transcription"]
+    assert inp["turn_detection"] is None  # server_vad / semantic_vad 를 보내지 않음
     app = next(m for m in received if m["type"] == "input_audio_buffer.append")
     assert base64.b64decode(app["audio"]) == b"\x01\x00" * 480
     assert headers_seen[0] == "Bearer sk-fake"
@@ -89,6 +122,106 @@ async def test_openai_stt_adapter_against_fake_realtime(monkeypatch):
     assert partials[:2] == ["다음 ", "다음 슬라이드"]
     assert any(e.type == "status" and e.state == "reconnecting" for e in events)
     assert conn_count == 2
+
+
+@pytest.mark.asyncio
+async def test_openai_stt_not_ready_without_ack(monkeypatch):
+    async def handler(ws):
+        async for _ in ws:
+            pass  # session.updated 를 보내지 않음
+
+    server, port = await _start_fake(handler)
+    events = []
+
+    async def on_event(ev):
+        events.append(ev)
+
+    p = _provider(monkeypatch, port, ack_timeout=0.5)
+    with pytest.raises(openai_stt.SttSessionError):
+        await p.start(on_event)
+    states = [e.state for e in events if e.type == "status"]
+    assert "ready" not in states and states[-1] == "error"
+    assert "session.updated" in events[-1].message
+    server.close()
+
+
+@pytest.mark.asyncio
+async def test_openai_stt_rejected_config_is_error(monkeypatch):
+    async def handler(ws):
+        async for raw in ws:
+            if json.loads(raw)["type"] == "session.update":
+                await ws.send(json.dumps({"type": "error", "error": {
+                    "type": "invalid_request_error", "code": "invalid_value", "message": "Invalid model"}}))
+
+    server, port = await _start_fake(handler)
+    events = []
+
+    async def on_event(ev):
+        events.append(ev)
+
+    p = _provider(monkeypatch, port)
+    with pytest.raises(openai_stt.SttSessionError) as ei:
+        await p.start(on_event)
+    assert "거부" in str(ei.value) and "Invalid model" in str(ei.value)
+    assert [e.state for e in events if e.type == "status"][-1] == "error"
+    server.close()
+
+
+@pytest.mark.asyncio
+async def test_openai_stt_mismatched_effective_session_is_error(monkeypatch):
+    async def handler(ws):
+        async for raw in ws:
+            msg = json.loads(raw)
+            if msg["type"] == "session.update":
+                msg["session"]["audio"]["input"]["turn_detection"] = {"type": "server_vad"}
+                await ws.send(_ack(msg))
+
+    server, port = await _start_fake(handler)
+    p = _provider(monkeypatch, port)
+
+    async def on_event(ev):
+        pass
+
+    with pytest.raises(openai_stt.SttSessionError) as ei:
+        await p.start(on_event)
+    assert "turn_detection" in str(ei.value)
+    server.close()
+
+
+@pytest.mark.asyncio
+async def test_openai_stt_failed_segment_and_lost_on_disconnect(monkeypatch):
+    async def handler(ws):
+        n = 0
+        async for raw in ws:
+            msg = json.loads(raw)
+            if msg["type"] == "session.update":
+                await ws.send(_ack(msg))
+            elif msg["type"] == "input_audio_buffer.commit":
+                n += 1
+                item = f"it{n}"
+                await ws.send(json.dumps({"type": "input_audio_buffer.committed", "item_id": item}))
+                if n == 1:
+                    await ws.send(json.dumps({"type": "conversation.item.input_audio_transcription.failed", "item_id": item,
+                                              "error": {"message": "x"}}))
+                else:
+                    await ws.close()  # 결과 없이 끊김 → 이 구간은 잃음
+
+    server, port = await _start_fake(handler)
+    events = []
+
+    async def on_event(ev):
+        events.append(ev)
+
+    p = _provider(monkeypatch, port)
+    p.max_reconnects = 0
+    await p.start(on_event)
+    await p.commit("v1")
+    await p.commit("v2")
+    await _until(lambda: sum(1 for e in events if e.type == "segment_failed") >= 2)
+    failed = [e.local_segment for e in events if e.type == "segment_failed"]
+    assert failed[:2] == ["v1", "v2"]
+    await p.close()
+    server.close()
 
 
 # ------------------------------------------------------------------ HTTP 스텁 (Messages / Images)
@@ -141,7 +274,7 @@ async def test_anthropic_adapter_request_shape_and_errors(stub, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-fake")
     monkeypatch.setenv("ANTHROPIC_BASE_URL", f"http://127.0.0.1:{stub.port}")
     from app.providers.anthropic_text import AnthropicTextProvider
-    p = AnthropicTextProvider("claude-opus-5-5", effort="low", timeout_s=10)
+    p = AnthropicTextProvider("claude-opus-5-5", effort="low", timeout_s=10, use_fallbacks=True)
     stub.responses.append((200, _msg('{"title":"x"}')))
     res = await p.complete_json("SYS", "USER", {"type": "object"})
     path, headers, body = stub.requests[-1]
@@ -200,3 +333,30 @@ async def test_openai_image_adapter_request_shape_and_validation(stub, monkeypat
     with pytest.raises(ProviderError) as e:
         await p.generate("P")
     assert e.value.retryable
+
+
+@pytest.mark.asyncio
+async def test_anthropic_haiku_sends_only_supported_options(stub, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-fake")
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", f"http://127.0.0.1:{stub.port}")
+    from app.providers.anthropic_text import AnthropicTextProvider
+    p = AnthropicTextProvider("claude-haiku-5-5", effort="low", timeout_s=10, use_fallbacks=True)
+    stub.responses.append((200, _msg('{"title":"x"}')))
+    await p.complete_json("SYS", "USER", {"type": "object"})
+    path, headers, body = stub.requests[-1]
+    assert body["model"] == "claude-haiku-5-5"
+    assert "fallbacks" not in body  # Haiku 5.5: 서버 측 fallback 없음
+    assert "server-side-fallback" not in headers.get("anthropic-beta", "")
+    assert "thinking" not in body and body["output_config"]["effort"] == "low"
+    p2 = AnthropicTextProvider("claude-haiku-5-5", effort="low", timeout_s=10, thinking="disabled")
+    stub.responses.append((200, _msg('{"title":"x"}')))
+    await p2.complete_json("SYS", "USER", {"type": "object"})
+    assert stub.requests[-1][2]["thinking"] == {"type": "disabled"}
+
+
+def test_request_options_reject_invalid_combinations():
+    from app.providers.anthropic_text import request_options
+    assert request_options("claude-opus-5-5", "low", "disabled", True) == {"fallbacks": True, "thinking": None}
+    assert request_options("claude-haiku-5-5", "xhigh", "disabled", True) == {"fallbacks": False, "thinking": None}
+    assert request_options("claude-haiku-5-5", "low", "disabled", False)["thinking"] == {"type": "disabled"}
+    assert request_options("claude-sonnet-5-5", "low", "", True)["fallbacks"] is True

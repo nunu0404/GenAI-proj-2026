@@ -68,6 +68,7 @@ export interface Utterance {
   text: string;
   source: string;
   received_at: number;
+  late?: boolean;
 }
 
 export interface PublicConfig {

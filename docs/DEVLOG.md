@@ -36,3 +36,54 @@
 - 실제 브라우저에서 마이크와 STT 확인, `VAD_RMS_THRESHOLD` 조정
 - `eval/run_context_ab.py` 실행 후 블라인드 평가
 - 자세한 내용은 `docs/results.md` 참고
+
+---
+
+## 2026-11-05 (2) — 리뷰 반영: 음성 처리 3건 수정, 임시 모델·품질 기본값, 검증 수준 정리
+
+**계기**
+외부 리뷰(e10b3dd 기준)에서 실제 마이크 시연 전에 고쳐야 할 음성 처리 문제 3건이 지적됐습니다. 사용자는 실시간 반응과 낮은 비용을 우선하며, 모델은 임시 설정으로 두고 환경변수로 교체할 수 있게 해 달라고 요청했습니다.
+
+**변경**
+1. 전사 완료 순서 보정 (`stt_stream.py`)
+   - commit 순서대로 보관했다가 앞 구간부터 감지기에 전달합니다.
+   - 앞 구간이 실패하면 즉시 건너뜁니다. 뒤 구간이 도착한 상태에서 앞 구간이 3초 넘게 오지 않거나, 어떤 결과도 10초 넘게 오지 않아도 건너뜁니다.
+   - 건너뛴 구간이 늦게 도착하면 자막과 기록에만 남기고 감지에는 쓰지 않습니다.
+   - 어댑터는 재연결로 잃은 구간과 전사 실패 구간을 `segment_failed`로 알립니다.
+2. 최소 발화 길이 실제 적용
+   - 유성 누적이 `VAD_MIN_SPEECH_MS` 미만인 구간은 STT로 보내지도 commit하지도 않습니다(후보 구간을 서버에 보관해 두는 방식).
+3. STT 설정 승인 확인
+   - `session.update` 후 `session.updated`를 받고 실제 반영된 설정(모델, 샘플레이트, turn_detection=null)을 검증한 뒤에만 ready로 전환합니다.
+   - 설정 거부(`error`), 승인 시간 초과, 설정 불일치는 `error` 상태와 사유로 표시합니다. 승인 이후의 서버 오류는 `degraded`로 표시합니다.
+4. 텍스트 모델 임시 기본값을 `claude-opus-5-5`에서 **`claude-haiku-5-5`**로 바꾸고 effort는 low로 둡니다.
+   - 어댑터는 모델마다 허용되는 옵션만 보냅니다. fallback은 Opus 5.5/Sonnet 5.5/Fable에만, `thinking: disabled`는 Haiku 5.5/Opus 5에서 effort가 high 이하일 때만 보냅니다.
+5. 이미지 임시 기본 품질을 medium에서 **low**로 바꿨습니다(jpeg, 1536x864 명시).
+   - 작업마다 이미지 설정, 생성 시간, 토큰, 추정 비용을 `jobs.metrics`에 기록하고, 텍스트 기획 토큰과 비용도 함께 기록합니다.
+6. `eval/check_providers.py`를 추가했습니다.
+   - 전사, 기획, 이미지를 각각 실제로 한 번씩 점검하고 결과를 단계별(설정 승인 또는 호출 성공, 결과 수신, 시간, 토큰, 비용)로 기록합니다.
+7. `latency_probe.py`에 `--quality`, `--text-model`, `--effort` 비교 옵션을 추가했습니다.
+8. 계약 테스트가 사용자 환경의 프록시를 타지 않도록 프록시 환경변수를 제거하고 `NO_PROXY`를 설정했습니다(리뷰어 환경에서 2개가 실패했던 원인).
+9. 문서: `docs/model-cost-decision.md`(모델 선택 근거, 과금 경로, 예상 비용, 검증 수준)를 새로 만들고 README, results, architecture를 갱신했습니다.
+
+**확인한 문서 (2026-11-05)**
+- Realtime 전사: `server_vad`/`semantic_vad` 미지원, `turn_detection: null`, `languages`/`delay`, 완료 순서 비보장.
+- Realtime 서버 이벤트: `session.update` 적용 시 `session.updated`.
+- 이미지: gpt-image-2는 조건을 만족하는 임의 해상도를 지원. 1536x1024 기준 low $0.005, medium $0.041. low는 빠른 초안용, jpeg가 png보다 빠름.
+- Anthropic 가격: Haiku 5.5 $0.10/$0.50, Sonnet 5.5 $2/$10, Opus 5.5 $4/$20.
+- 과금: OpenAI와 Anthropic API 모두 구독과 별도. Claude Max/Ultra/Team에는 연결해서 쓰는 월간 API 크레딧이 있음.
+
+**검증**
+- pytest 59개 통과.
+- 새 음성 처리 테스트 6개는 이전 코드(e10b3dd)에서 5개가 실패하고 수정 후 모두 통과합니다.
+- 프런트엔드 타입 검사와 빌드를 통과했습니다.
+- 키 없이 `check_providers.py`를 실행하면 세 단계 모두 "미검증"으로 보고하고 결과 파일을 만들지 않습니다.
+
+**여전히 미검증**
+- 실제 API 연결, 계정 권한, 호출 성공, 전체 흐름. 실제 지연과 비용.
+- 결제, 충전, 키 발급은 하지 않았습니다.
+
+**다음 할 일 (리뷰 권장 순서)**
+1. `check_providers.py --stt`(승인만) → `--stt --wav`(한국어·전문용어·구간 분할 확인)
+2. `--text`, `--image --quality low`/`medium` 각 1회
+3. `latency_probe.py -n 5`로 기획, 이미지, 총 대기 시간, 비용 기록
+4. 그 결과로 텍스트 모델(Haiku 유지 여부)과 이미지 품질 확정

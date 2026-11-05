@@ -80,7 +80,7 @@ function reducer(s: SessionState, m: Msg | { type: "local.notice"; kind: string;
       return { ...s, partial: d.text ?? "" };
     case "transcript.final": {
       if (d.empty) return { ...s, partial: "" };
-      const u: Utterance = { id: d.utterance_id, segment_id: d.segment_id, text: d.text, source: d.source, received_at: Date.now() / 1000 };
+      const u: Utterance = { id: d.utterance_id, segment_id: d.segment_id, text: d.text, source: d.source, received_at: Date.now() / 1000, late: !!d.late };
       return { ...s, partial: "", utterances: [...s.utterances, u].slice(-80) };
     }
     case "detector": {

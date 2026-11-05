@@ -188,9 +188,11 @@ def create_app(s: Optional[Settings] = None, text: Optional[TextProvider] = None
                     try:
                         await my_stream.start()
                     except Exception as e:  # noqa: BLE001
-                        log.warning("STT start failed: %s", type(e).__name__)
+                        from .providers.openai_stt import SttSessionError
+                        reason = str(e) if isinstance(e, SttSessionError) else type(e).__name__
+                        log.warning("STT start failed: %s", reason)
                         await hub.send(ws, {"type": "stt.status", "session_id": sid, "data": {
-                            "state": "error", "message": "STT 연결에 실패했습니다. 텍스트 입력으로 계속할 수 있습니다."}})
+                            "state": "error", "message": f"STT 연결 실패: {reason}. 텍스트 입력으로 계속할 수 있습니다."}})
                         my_stream.active = False
                         my_stream = None
                         rt.stt = None
