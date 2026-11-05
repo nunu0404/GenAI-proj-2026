@@ -119,6 +119,16 @@ label { display: grid; gap: 4px; font-weight: 500; }
 .tbe-eqs { min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 2.4em;
   background: var(--s-soft); border-radius: 1.2cqw; padding: 2.4em 2.6em; }
 .eq { margin: 0; }
+.eq-step { position: relative; }
+.tbe-eqs.steps { gap: 1.6em; padding: 2em 2.4em 2em 4.6em; }
+.tbe-eqs.steps .eq-math { font-size: 2.1em; }
+.tbe-eqs.steps .eq-cap { font-size: 1.4em; text-align: left; }
+.tbe-eqs.steps .eq-math .katex-display { text-align: left; }
+.tbe-eqs.steps .eq-math .katex-display > .katex { text-align: left; }
+.eq-step-no { position: absolute; left: -3em; top: 0.2em; width: 2em; height: 2em; border-radius: 50%; background: var(--s-accent);
+  color: #fff; font-weight: 700; font-size: 1.3em; display: grid; place-items: center; }
+.tbe-eqs.steps .eq-step:not(:last-child)::after { content: ""; position: absolute; left: -2.05em; top: 3.2em; bottom: -1.4em;
+  border-left: 0.2em dashed #9fbdb8; }
 .eq-math { font-size: 2.6em; color: var(--s-title); overflow: hidden; }
 .eq-math .katex-display { margin: 0; }
 .eq-raw { font-size: 1.6em; white-space: pre-wrap; color: #8c2340; }

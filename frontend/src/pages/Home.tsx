@@ -4,8 +4,8 @@ import { api, type PublicConfig, type Session } from "../api";
 export function Home() {
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const [config, setConfig] = useState<(PublicConfig & { credential_problems: string[] }) | null>(null);
-  const [title, setTitle] = useState("머신러닝 기초");
-  const [audience, setAudience] = useState("대학 신입생");
+  const [title, setTitle] = useState("");
+  const [audience, setAudience] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,11 +39,11 @@ export function Home() {
         <h3>새 강의 세션</h3>
         <label>
           강의 제목
-          <input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} />
+          <input value={title} maxLength={80} placeholder="예: 머신러닝 기초 · 통계학 입문 · 세포생물학 · 한국사" onChange={(e) => setTitle(e.target.value)} />
         </label>
         <label>
           청중 수준
-          <input value={audience} maxLength={80} onChange={(e) => setAudience(e.target.value)} />
+          <input value={audience} maxLength={80} placeholder="예: 대학 신입생 · 고등학생 · 비전공 교양 수강생" onChange={(e) => setAudience(e.target.value)} />
         </label>
         <button className="primary" disabled={!title.trim() || !audience.trim()} onClick={create}>
           세션 시작

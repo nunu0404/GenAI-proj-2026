@@ -83,9 +83,12 @@ export function SlideView({ slide, presenterHints, onOverflow, onRendered, class
           </ul>
         </div>
         {isEq && (
-          <div className="tbe-eqs" ref={eqRef}>
-            {(slide.equations ?? []).map((e, i) => (
-              <EquationBlock key={i} eq={e} />
+          <div className={`tbe-eqs ${(slide.equations ?? []).length > 1 ? "steps" : ""}`} ref={eqRef}>
+            {(slide.equations ?? []).map((e, i, all) => (
+              <div key={i} className="eq-step">
+                {all.length > 1 && <span className="eq-step-no">{i + 1}</span>}
+                <EquationBlock eq={e} />
+              </div>
             ))}
           </div>
         )}
@@ -187,18 +190,22 @@ export function EquationBlock({ eq }: { eq: Equation }) {
   );
 }
 
-/** 글 속의 \( … \) 부분만 KaTeX 인라인 수식으로 렌더링하고 나머지는 일반 텍스트로 출력한다. */
+/** 글 속의 인라인 수식($…$, \(…\))만 KaTeX 로 렌더링하고 나머지는 일반 텍스트로 출력한다. */
 export function MathText({ text }: { text: string }) {
   const parts = useMemo(() => {
     const out: { math: boolean; s: string; html?: string | null }[] = [];
-    const re = /\\\((.+?)\\\)/g;
+    // 지원 형식: $…$, \(…\), 그리고 이스케이프가 깨져 남은 (\cmd…) 형태
+    const re = /\$([^$\n]+?)\$|\\\((.+?)\\\)|\\?\((\\[a-zA-Z][^()]*)\)/g;
     let last = 0;
     let m: RegExpExecArray | null;
     while ((m = re.exec(text))) {
       if (m.index > last) out.push({ math: false, s: text.slice(last, m.index) });
       let html: string | null = null;
       try {
-        html = katex.renderToString(m[1], { ...KATEX_OPTS, displayMode: false });
+        const src = (m[1] ?? m[2] ?? m[3] ?? "").replace(/\\\\(?=[a-zA-Z])/g, "\\"); // 이중 이스케이프 보정
+        // '$5와 $10' 같은 금액 표기는 수식으로 보지 않는다
+        if (m[1] !== undefined && /^\d[\d.,]*\s/.test(src)) throw new Error("not math");
+        html = katex.renderToString(src, { ...KATEX_OPTS, displayMode: false });
       } catch {
         html = null;
       }

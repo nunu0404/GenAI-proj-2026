@@ -105,3 +105,44 @@ def test_image_validation():
     with pytest.raises(ProviderError):  # 매직은 PNG 지만 깨진 데이터
         validate_image(b"\x89PNG\r\n\x1a\n" + b"\x00" * 3000, 10_000_000)
     assert base64  # noqa
+
+
+def test_repair_json_escaped_latex():
+    from app.schemas import EquationItem, SlideSpec, repair_escapes
+    B = "\\"
+    # 실제 응답에서 관찰된 손상: '\(' 가 NUL+'(' 로, 닫는 쪽은 ')' 로 남음
+    assert repair_escapes("위치 \x00(" + B + "theta_t)에서 기울기 \x00(g_t)") == "위치 $" + B + "theta_t$에서 기울기 $g_t$"
+    assert repair_escapes("정상 " + B + "(" + B + "hat{y}" + B + ") 유지") == "정상 " + B + "(" + B + "hat{y}" + B + ") 유지"
+    e = EquationItem(latex="\theta = \beta \nabla L \frac{1}{n}", caption="\x08eta 설명")
+    assert e.latex == B + "theta = " + B + "beta " + B + "nabla L " + B + "frac{1}{n}" and e.caption.startswith(B + "beta")
+    s = SlideSpec(title="t", bullets=["학습률 \x00(" + B + "eta)", "둘째"], visual_type="text")
+    assert s.bullets[0] == "학습률 $" + B + "eta$"
+
+
+@pytest.mark.asyncio
+async def test_repeated_equations_trigger_one_diversity_retry():
+    B = "\\"
+    eq = {"latex": B + "theta_{t+1}=" + B + "theta_t-" + B + "eta g_t", "caption": "갱신"}
+    base = dict(GOOD, visual_type="equation", image_prompt="", visual_intent="")
+    same = json.dumps(dict(base, equations=[eq]), ensure_ascii=False)
+    other = json.dumps(dict(base, equations=[{"latex": B + "Delta" + B + "theta=-" + B + "eta g", "caption": "이동량"}]),
+                       ensure_ascii=False)
+    ctx = dict(CTX, previous_slides=[{"title": "경사하강법 갱신식", "equations": [eq["latex"].replace("=", " = ")]}])
+    p = MockTextProvider(delay_ms=0, raw_override=[same, other])
+    res = await plan_slide(p, ctx, "다음 슬라이드에서는 수식을 풀어서 설명하겠습니다")
+    assert p.calls == 2 and res.diversity_retry and "Delta" in res.spec.equations[0].latex
+    # 다시 받아도 같으면 받아들인다 (무한 재시도 없음)
+    p2 = MockTextProvider(delay_ms=0, raw_override=[same, same])
+    res2 = await plan_slide(p2, ctx, "요청")
+    assert p2.calls == 2 and res2.spec.equations[0].latex.startswith(B + "theta")
+    # 앞 장과 다르면 재요청 없음
+    p3 = MockTextProvider(delay_ms=0, raw_override=[other])
+    assert (await plan_slide(p3, ctx, "요청")).diversity_retry is False and p3.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_placeholder_symbol_triggers_repair():
+    bad = dict(GOOD, bullets=["학습률 $[?]$를 곱합니다.", "둘째 문장"])
+    p = MockTextProvider(delay_ms=0, raw_override=[json.dumps(bad, ensure_ascii=False), json.dumps(GOOD, ensure_ascii=False)])
+    res = await plan_slide(p, CTX, "요청", max_repair=1)
+    assert res.repairs == 1 and p.calls == 2 and "[?]" not in "".join(res.spec.bullets)

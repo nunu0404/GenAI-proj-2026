@@ -228,6 +228,10 @@ class SessionRuntime:
             truncated = True
         sess = self.db.get_session(self.sid) or {}
         cur = self.db.get_slide(sess.get("current_slide_id") or "") if sess.get("current_slide_id") else None
+        # 최근에 만든 장(표지 제외, 최대 3개): 발표자가 아직 넘기지 않았어도 반복을 피하고 이어서 기획하도록
+        recent = [x for x in self.db.list_slides(self.sid) if x["layout"] != "cover" and x["title"]][-3:]
+        previous_slides = [{"title": x["title"], "layout": x["layout"],
+                            "equations": [e.get("latex", "") for e in (x.get("equations") or [])]} for x in recent]
         return {
             "lecture_title": sess.get("title", ""),
             "audience": sess.get("audience", ""),
@@ -236,6 +240,7 @@ class SessionRuntime:
             "utterance_count": len(rows),
             "window_s": self.s.context_window_s,
             "current_slide": {"title": cur["title"], "bullets": cur["bullets"]} if cur else None,
+            "previous_slides": previous_slides,
             "frozen_at": time.time(),
         }
 
@@ -366,6 +371,7 @@ class SessionRuntime:
             costs = [estimate_cost(self.s, u) for u in plan.usages]
             self.db.merge_job_metrics(
                 jid, planning_repairs=plan.repairs, local_fixes=plan.local_fixes, text_model=self.text.model,
+                diversity_retry=plan.diversity_retry,
                 text_settings=plan.usages[-1].settings if plan.usages else {},
                 text_input_tokens=sum(u.input_tokens or 0 for u in plan.usages),
                 text_output_tokens=sum(u.output_tokens or 0 for u in plan.usages),

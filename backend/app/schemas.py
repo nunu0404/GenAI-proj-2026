@@ -1,6 +1,7 @@
 """명시적 데이터 스키마 (Pydantic). 웹 렌더링·저장·LLM 출력 검증이 모두 이 스키마를 공유한다."""
 from __future__ import annotations
 
+import re
 from enum import Enum
 from typing import Any, Literal, Optional
 
@@ -32,7 +33,25 @@ EQ_CAPTION_MAX = 80
 _LATEX_FORBIDDEN = ("\\href", "\\url", "\\includegraphics", "\\htmlClass", "\\htmlId", "\\htmlStyle", "\\htmlData")
 
 
+# JSON 이스케이프 손상 복구: 모델이 LaTeX 백슬래시를 잘못 이스케이프하면 '\theta'→탭+'heta', '\beta'→백스페이스+'eta',
+# '\nabla'→줄바꿈+'abla', '\frac'→폼피드+'rac', '\(' → NUL+'(' 처럼 제어 문자가 섞인다. 원래 명령으로 되돌린다.
+_ESC_REPAIR = {"\x00": "\\", "\x08": "\\b", "\x0c": "\\f", "\t": "\\t", "\r": "\\r"}
+
+
+def repair_escapes(text: str) -> str:
+    if not isinstance(text, str):
+        return text
+    for bad, good in _ESC_REPAIR.items():
+        text = text.replace(bad, good)
+    text = re.sub(r"\n(?=[a-zA-Z])", r"\\n", text)  # '\nabla', '\neq', '\nu'
+    text = re.sub(r"\\\\(?=[a-zA-Z])", r"\\", text)  # 이중 이스케이프 '\\eta' → '\eta' (글자 앞 줄바꿈 명령은 의도가 아님)
+    # 짝이 깨진 인라인 수식 '\(\theta_t)' → '$\theta_t$'
+    text = re.sub(r"\\\(([^()]{1,60}?)\)(?<!\\\))", r"$\1$", text)
+    return re.sub(r"[\x01-\x07\x0b\x0e-\x1f]", "", text)
+
+
 def validate_latex(latex: str) -> str:
+    latex = repair_escapes(latex)
     latex = (latex or "").strip().strip("$").strip()
     if not (1 <= len(latex) <= LATEX_MAX):
         raise ValueError(f"수식(LaTeX)은 1~{LATEX_MAX}자여야 합니다")
@@ -56,7 +75,7 @@ class EquationItem(BaseModel):
     @model_validator(mode="after")
     def _check(self) -> "EquationItem":
         self.latex = validate_latex(self.latex)
-        self.caption = (self.caption or "").strip()
+        self.caption = repair_escapes(self.caption or "").strip()
         if any(cmd in self.caption for cmd in _LATEX_FORBIDDEN):
             raise ValueError("수식 설명에 허용되지 않는 명령이 있습니다")
         if len(self.caption) > EQ_CAPTION_MAX:
@@ -92,11 +111,15 @@ class SlideSpec(BaseModel):
     @classmethod
     def _strip_bullets(cls, v: Any) -> Any:
         if isinstance(v, list):
-            return [b.strip().lstrip("-•· ").strip() if isinstance(b, str) else b for b in v]
+            return [repair_escapes(b).strip().lstrip("-•· ").strip() if isinstance(b, str) else b for b in v]
         return v
 
     @model_validator(mode="after")
     def _check(self) -> "SlideSpec":
+        texts = [self.title, self.speaker_notes, *self.bullets, *(e.latex for e in self.equations),
+                 *(e.caption for e in self.equations)]
+        if any(("[?]" in t) or ("\ufffd" in t) for t in texts):
+            raise ValueError("깨진 기호('[?]' 또는 U+FFFD)가 있습니다. 기호는 유니코드 문자로 쓰세요")
         if self.needs_clarification:
             if not (self.clarification_reason or "").strip():
                 raise ValueError("needs_clarification=true 이면 clarification_reason 이 필요합니다")
