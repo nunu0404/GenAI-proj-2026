@@ -57,6 +57,10 @@ export interface Slide {
   title: string;
   bullets: string[];
   image_url: string | null;
+  /** 디노이징 중간 미리보기 (클라이언트 전용, 저장되지 않음): 예측된 깨끗한 이미지의 근사 색 */
+  preview_url?: string;
+  preview_step?: number;
+  preview_total?: number;
   image_alt: string;
   equations: Equation[];
   visual: Visual | null;

@@ -336,3 +336,69 @@ async def test_show_before_image_flow(make_rt):
     assert (await rt.navigate(direction="next"))["current_slide_id"] == cover
     gate2.set()
     await wait_for(lambda: job_status(rt, j2["id"]) == "ready")
+
+
+class PreviewImageProvider(MockImageProvider):
+    """디노이징 미리보기를 흉내 내는 가짜 제공자: 미리보기 2번 → gate 대기 → 완성 그림."""
+    supports_preview = True
+
+    def __init__(self, gate):
+        super().__init__(delay_ms=0, gate=None)
+        self.preview_gate = gate
+
+    async def generate(self, prompt, on_preview=None):
+        if on_preview:
+            await on_preview(1, 3, b"\xff\xd8\xff-fake1")
+            await on_preview(2, 3, b"\xff\xd8\xff-fake2")
+        await self.preview_gate.wait()
+        if on_preview:  # 취소 뒤 늦게 온 미리보기는 보내지 않아야 함
+            await on_preview(3, 3, b"\xff\xd8\xff-late")
+        return await super().generate(prompt)
+
+
+@pytest.mark.asyncio
+async def test_denoising_preview_events(make_rt):
+    gate = asyncio.Event()
+    rt = make_rt(image=PreviewImageProvider(gate))
+    await rt.manual_input(REQ, "force")
+    job = latest_job(rt)
+    await wait_for(lambda: len(rt.hub.of("slide.preview")) == 2)
+    ev = rt.hub.of("slide.preview")
+    assert [e["data"]["step"] for e in ev] == [1, 2] and ev[0]["data"]["total"] == 3
+    assert ev[0]["data"]["data_url"].startswith("data:image/jpeg;base64,")
+    assert ev[0]["job_id"] == job["id"]
+    # 기본값(show_before_image=1): 텍스트가 준비된 그림형 장이라 청중에게도 보냄
+    assert ev[0]["audience_data"] == ev[0]["data"]
+    # 취소하면 이후 미리보기는 보내지 않음
+    await rt.cancel(job["id"])
+    gate.set()
+    await asyncio.sleep(0.05)
+    assert len(rt.hub.of("slide.preview")) == 2
+
+
+@pytest.mark.asyncio
+async def test_preview_not_sent_to_audience_when_option_off(make_rt):
+    gate = asyncio.Event()
+    rt = make_rt(image=PreviewImageProvider(gate))
+    rt.db.update_session(rt.sid, show_before_image=False)
+    await rt.manual_input(REQ, "force")
+    job = latest_job(rt)
+    await wait_for(lambda: len(rt.hub.of("slide.preview")) == 2)
+    gate.set()
+    await wait_for(lambda: job_status(rt, job["id"]) == "ready")
+    n = len(rt.hub.of("slide.preview"))  # 그림을 돌려주기 전(아직 생성 중)에 보낸 3번째까지는 정상
+    assert n == 3 and all(e["audience_data"] is None for e in rt.hub.of("slide.preview"))
+    await asyncio.sleep(0.05)
+    assert len(rt.hub.of("slide.preview")) == n  # 완성 뒤에는 더 보내지 않음
+
+
+@pytest.mark.asyncio
+async def test_preview_disabled_by_setting(make_rt, settings):
+    settings.local_image_preview = False
+    gate = asyncio.Event()
+    gate.set()
+    rt = make_rt(image=PreviewImageProvider(gate))
+    await rt.manual_input(REQ, "force")
+    job = latest_job(rt)
+    await wait_for(lambda: job_status(rt, job["id"]) == "ready")
+    assert rt.hub.of("slide.preview") == []

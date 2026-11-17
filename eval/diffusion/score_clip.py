@@ -7,6 +7,7 @@
 - CLIP 유사도 = 이미지 임베딩과 '장면 문장'(화풍 문구 제외) 임베딩의 코사인 × 100.
 - 다양성 = 같은 장면·조건에서 시드끼리 이미지 임베딩의 (1 - 코사인) 평균. 시드 2개면 쌍 1개.
 - 신뢰구간: 장면별로 시드 평균을 낸 뒤 장면 12개를 부트스트랩(2000회)한 95% 구간. 표본이 작으니 경향으로만 해석한다.
+- 글자 섞임 대리 지표(text_prob)는 검증에 실패해 요약에서 뺐다(scores.jsonl 에만 남김).
 - 이 점수는 '그림이 장면 문장과 얼마나 맞는가'만 본다. 설명에 도움이 되는지, 글자가 섞였는지는 사람이 따로 본다.
 결과: summary.md, summary.csv, scores.jsonl, sheet.html(눈으로 비교용).
 """
@@ -23,6 +24,8 @@ from itertools import combinations
 from pathlib import Path
 
 CLIP = "openai/clip-vit-base-patch32"
+TEXT_QUERIES = ["an illustration with written text, letters and words on it",
+                "an illustration with no text or letters at all"]
 
 
 def _feat(o):
@@ -67,6 +70,13 @@ def main(run_dir: Path) -> None:
             img_emb[r["file"]] = e
     for r in runs:
         r["clip"] = round(float(img_emb[r["file"]] @ temb[r["scene_text"]]) * 100, 2)
+    # 글자 섞임 대리 지표(text_prob): CLIP 제로샷 '글자 있는 그림' 대 '없는 그림' 확률.
+    # 2026-11-17 검증 실패 — 확률 상위 6장 중 실제 글자 모양은 1장뿐(진하고 꾸민 그림체에 반응). 요약표에 쓰지 않고
+    # scores.jsonl 에만 참고로 남긴다.
+    tq = emb_text(TEXT_QUERIES)
+    for r in runs:
+        logits = model.logit_scale.exp() * (img_emb[r["file"]] @ tq.T)
+        r["text_prob"] = round(float(torch.softmax(logits, -1)[0]), 3)
     (run_dir / "scores.jsonl").write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in runs) + "\n")
 
     key = lambda r: (r["scheduler"], r["steps"], r["cfg"])  # noqa: E731
@@ -119,7 +129,8 @@ def main(run_dir: Path) -> None:
         h.append(f"<tr><th>{s}</th>")
         for c in cols:
             r = cell.get((s, c))
-            h.append(f"<td><img src='images/{r['file']}'>{r['clip']} · {r['seconds']}s</td>" if r else "<td></td>")
+            h.append(f"<td><img src='images/{r['file']}'>{r['clip']} · 글자 {r['text_prob']} · {r['seconds']}s</td>"
+                     if r else "<td></td>")
         h.append("</tr>")
     (run_dir / "sheet.html").write_text("".join(h) + "</table>")
 

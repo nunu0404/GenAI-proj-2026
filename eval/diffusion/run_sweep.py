@@ -19,7 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import OUT_ROOT, device_info, load_pipeline, sync  # noqa: E402
 
-from app.providers.local_image import SD_NEGATIVE, compose_sd_prompt  # noqa: E402
+from app.providers.local_image import SD_NEGATIVE, compose_sd_prompt, tokenizer_counter  # noqa: E402
 
 PROMPTS = Path(__file__).resolve().parent / "prompts.json"
 
@@ -74,7 +74,7 @@ def main() -> None:
             for steps in args.steps:
                 for cfg in args.cfg:
                     for sc in scenes:
-                        prompt = compose_sd_prompt(sc["scene"])
+                        prompt = compose_sd_prompt(sc["scene"], tokenizer_counter(pipe.tokenizer))
                         for seed in args.seeds:
                             k += 1
                             fname = f"{sc['id']}_{sch}_s{steps}_g{cfg:g}_seed{seed}.jpg"

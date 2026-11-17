@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import time
 from pathlib import Path
@@ -120,6 +121,22 @@ class SessionRuntime:
                                      job_id=sl.get("job_id"), audience_type="slide.removed")
         else:
             await self.hub.broadcast(self.sid, "slide.updated", serialize_slide(sl), aud, job_id=sl.get("job_id"))
+
+    def _preview_sender(self, slide_id: str, jid: str, attempt: int):
+        """디노이징 중간 미리보기(작은 JPEG)를 보낸다. 저장하지 않는다.
+        청중에게는 그 장을 청중에게 보여 줄 수 있을 때만(presentable) 보낸다. 취소·재시도로 바뀐 장에는 보내지 않는다."""
+        async def send(step: int, total: int, jpg: bytes) -> None:
+            if self._is_cancelled(jid):
+                return
+            sl, job = self.db.get_slide(slide_id), self.db.get_job(jid)
+            if not sl or not job or sl.get("job_id") != jid or job.get("attempt") != attempt \
+                    or sl["status"] != JobStatus.generating_image.value:
+                return
+            data = {"slide_id": slide_id, "attempt": attempt, "step": step, "total": total,
+                    "data_url": "data:image/jpeg;base64," + base64.b64encode(jpg).decode()}
+            aud = data if presentable(sl, self.db.get_session(self.sid)) else None
+            await self.hub.broadcast(self.sid, "slide.preview", data, aud, job_id=jid)
+        return send
 
     async def emit_session(self) -> None:
         s = self.db.get_session(self.sid)
@@ -437,7 +454,10 @@ class SessionRuntime:
         tries = 0
         while True:
             try:
-                img: ImageResult = await self._guarded(jid, self.image.generate(prompt))
+                gen = (self.image.generate(prompt, on_preview=self._preview_sender(slide_id, jid, attempt))
+                       if getattr(self.image, "supports_preview", False) and self.s.local_image_preview
+                       else self.image.generate(prompt))
+                img: ImageResult = await self._guarded(jid, gen)
                 break
             except JobCancelled:
                 return

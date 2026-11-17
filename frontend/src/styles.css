@@ -108,7 +108,16 @@ label { display: grid; gap: 4px; font-weight: 500; }
 .tbi-bullets li { position: relative; padding-left: 1.5em; font-size: 2.1em; line-height: 1.45; font-weight: 500; }
 .tbi-bullets li::before { content: ""; position: absolute; left: 0; top: 0.5em; width: 0.5em; height: 0.5em; border-radius: 2px; background: var(--s-accent); }
 .tbi-image { min-height: 0; min-width: 0; align-self: center; width: 100%; aspect-ratio: 16 / 9; max-height: 100%; display: grid; place-items: center; background: var(--s-soft); border-radius: 1.2cqw; overflow: hidden; }
+.tbi-image { position: relative; }
 .tbi-image img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.tbi-image > * { grid-area: 1 / 1; }
+/* 디노이징 미리보기: 잠재 공간(1/8 크기)의 근사 색이라 살짝 흐리게 보여 준다 */
+.img-preview { filter: blur(3px) saturate(1.05); transform: scale(1.02); transition: filter 200ms linear; }
+.img-preview.under { pointer-events: none; }
+/* transform 이 있는 미리보기가 완성 그림 위에 그려지지 않도록 쌓임 순서를 명시 */
+.tbi-image .img-preview { position: relative; z-index: 0; }
+.tbi-image .img-fade { position: relative; z-index: 1; }
+.preview-chip { position: absolute; right: 0.8cqw; bottom: 0.8cqw; font-size: 1.2em; background: rgba(255,255,255,.85); }
 .img-placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: #5b6b7a; font-size: 1.8em; }
 .img-placeholder.quiet { background: var(--s-soft); }
 .shimmer { background: linear-gradient(100deg, #e8efee 30%, #f6f9f8 50%, #e8efee 70%); background-size: 300% 100%; animation: shimmer 1.6s linear infinite; }

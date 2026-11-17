@@ -89,6 +89,8 @@ class Settings:
     local_image_cfg: Optional[float] = field(default_factory=lambda: _float_or_none("LOCAL_IMAGE_CFG"))
     local_image_size: str = field(default_factory=lambda: _env("LOCAL_IMAGE_SIZE", "768x432"))
     local_image_scheduler: str = field(default_factory=lambda: _env("LOCAL_IMAGE_SCHEDULER", ""))  # ddim | ddpm | euler
+    # 디노이징 중간 결과(예측된 깨끗한 이미지의 근사 색)를 그림 자리에 보여 준다. 스텝이 2 이상일 때만 의미가 있다
+    local_image_preview: bool = field(default_factory=lambda: _env("LOCAL_IMAGE_PREVIEW", "1") not in ("0", "false", "no"))
 
     # --- 요청 감지 / 맥락 ---
     request_silence_ms: int = field(default_factory=lambda: int(_env("REQUEST_SILENCE_MS", "2500")))

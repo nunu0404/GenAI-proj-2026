@@ -75,6 +75,13 @@ function reducer(s: SessionState, m: Msg | { type: "local.notice"; kind: string;
       return { ...s, session: s.session ? { ...s.session, ...d } : d };
     case "slide.updated":
       return { ...s, slides: upsert(s.slides, d as Slide, (a, b) => a.position - b.position) };
+    case "slide.preview":
+      return {
+        ...s,
+        slides: s.slides.map((x) =>
+          x.id === d.slide_id ? { ...x, preview_url: d.data_url, preview_step: d.step, preview_total: d.total } : x,
+        ),
+      };
     case "slide.removed":
       return { ...s, slides: s.slides.filter((x) => x.id !== d.slide_id) };
     case "job.updated":

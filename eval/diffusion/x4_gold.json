@@ -1,0 +1,17 @@
+{
+  "note": "X4 정답 장면 설명. 2026-11-17, 생성 결과를 보기 전에 개발자가 시나리오(강의 발화·현재 장·요청)를 읽고 '강사가 의도한 그림'을 영어 한 문장으로 적었다. CLIP 비교 기준으로만 쓴다.",
+  "gold": {
+    "S01": "a student who memorized old exam answers looking confused at a new, different exam question",
+    "S02": "a hiker on a foggy mountain taking huge leaps that overshoot the bottom of the valley and bounce between slopes",
+    "S03": "a spoon tasting soup from one unstirred corner of a pot, so the taste does not represent the whole pot",
+    "S04": "a cell drawn as a factory with a power plant inside supplying electricity, representing mitochondria",
+    "S05": "a student at the movies on a weekend while the wage from a skipped part-time job floats away, opportunity cost",
+    "S06": "a wall of labeled drawers or lockers where each item is found by its name tag rather than by a number",
+    "S07": "passengers on a bus lurching forward as the bus suddenly brakes",
+    "S08": "a student team project where members randomly take turns resting so the team does not depend on one person",
+    "S09": "a crowded Joseon dynasty civil service examination ground with scholars in traditional robes writing at mats",
+    "S10": "a book with an overly thick index section, showing that many indexes take space and slow down updates",
+    "S11": "a spam filter sorting emails, some important normal emails wrongly thrown into the spam bin",
+    "S12": "the Earth wrapped in a thickening greenhouse gas blanket trapping more heat and getting hotter"
+  }
+}

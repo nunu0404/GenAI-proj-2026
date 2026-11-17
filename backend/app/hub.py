@@ -11,7 +11,7 @@ from fastapi import WebSocket
 
 log = logging.getLogger("nextslide.hub")
 
-AUDIENCE_EVENTS = {"slide.updated", "slide.removed", "session.updated", "snapshot"}
+AUDIENCE_EVENTS = {"slide.updated", "slide.removed", "slide.preview", "session.updated", "snapshot"}
 
 
 def image_url(slide: dict) -> Optional[str]:

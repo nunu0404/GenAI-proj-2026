@@ -153,11 +153,24 @@ export function SlideView({ slide, presenterHints, onOverflow, onRendered, class
       </div>
       <div className="tbi-image">
         {hasImage ? (
-          <FadeImage
-            src={slide.image_url!}
-            alt={slide.image_alt}
-            onLoaded={() => onRendered && requestAnimationFrame(() => onRendered(slide.id))}
-          />
+          <>
+            {/* 디노이징 미리보기를 받은 장은 그 위로 완성 그림이 서서히 덮인다 */}
+            {slide.preview_url && <img className="img-preview under" src={slide.preview_url} alt="" draggable={false} />}
+            <FadeImage
+              src={slide.image_url!}
+              alt={slide.image_alt}
+              onLoaded={() => onRendered && requestAnimationFrame(() => onRendered(slide.id))}
+            />
+          </>
+        ) : slide.status === "generating_image" && slide.preview_url ? (
+          <>
+            <img className="img-preview" src={slide.preview_url} alt="" draggable={false} />
+            {presenterHints && (
+              <span className="chip preview-chip">
+                확산 {slide.preview_step}/{slide.preview_total}
+              </span>
+            )}
+          </>
         ) : presenterHints ? (
           <div className={`img-placeholder ${slide.status === "generating_image" ? "shimmer" : ""}`}>
             <span>

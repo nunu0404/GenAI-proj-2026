@@ -59,7 +59,9 @@ cd backend && uv pip install -r requirements-local-image.txt --python .venv/bin/
 - Stable Diffusion 계열 공개 모델(SD-Turbo, SD 1.5)을 Apple Silicon(MPS)이나 CUDA에서 돌립니다. 첫 실행 때 가중치(각 약 2~2.5GB)를 내려받고, 서버 시작 직후 백그라운드에서 미리 불러옵니다.
 - SD의 CLIP 텍스트 인코더는 77토큰까지만 읽으므로, 기획 단계의 긴 그림 프롬프트에서 장면만 꺼내 짧은 화풍 문구를 붙여 보냅니다. “글자 넣지 말 것”은 negative prompt로 보내며, CFG를 쓰는 sd15에서만 효과가 있습니다.
 - 라이선스: SD 1.5는 CreativeML OpenRAIL-M, SD-Turbo는 Stability AI 커뮤니티(비상업) 라이선스입니다. 수업 과제 용도로 사용합니다.
-- 속도와 품질 비교 실험은 [eval/diffusion/](eval/diffusion/)에 있습니다.
+- **디노이징 과정 보여 주기**: 생성 중에는 매 스텝의 예측된 깨끗한 이미지(x̂₀)를 근사 색으로 그림 자리에 보여 주고, 완성 그림이 그 위로 서서히 덮입니다. SD-Turbo는 0.6초라 거의 보이지 않으므로, 과정을 보여 주려면 `LOCAL_IMAGE_MODEL=sd15`를 쓰세요.
+- 실측(M5): SD-Turbo 2스텝 약 0.65초, SD 1.5 DDIM 25스텝 약 12초. 실제 서버에서 요청 확정부터 그림까지 완성 6.2초(n=1).
+- 속도와 품질 비교 실험은 [docs/diffusion-experiments.md](docs/diffusion-experiments.md)와 [eval/diffusion/](eval/diffusion/)에 있습니다.
 
 ## 슬라이드 형태 (기획 단계에서 자동 선택)
 
