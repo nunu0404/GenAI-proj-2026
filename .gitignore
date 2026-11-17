@@ -12,3 +12,4 @@ frontend/tsconfig.tsbuildinfo
 # 확산 실험의 개별 생성 이미지(수백 장)는 저장소에 넣지 않는다. 요약·점수·대표 비교 이미지만 커밋
 eval/results/diffusion/*/images/
 eval/results/diffusion/speed_*/*.png
+eval/results/diffusion/*/sheet.html

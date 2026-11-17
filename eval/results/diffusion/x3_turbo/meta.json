@@ -1,0 +1,33 @@
+{
+  "model": "sd-turbo",
+  "device": {
+    "device": "mps",
+    "torch": "2.15.0",
+    "machine": "arm64",
+    "platform": "macOS-26.6.2-arm64-arm-64bit"
+  },
+  "load_s": 3.4,
+  "args": {
+    "name": "x3_turbo",
+    "model": "sd-turbo",
+    "schedulers": [
+      "default"
+    ],
+    "steps": [
+      1,
+      2,
+      4
+    ],
+    "cfg": [
+      0.0
+    ],
+    "seeds": [
+      0,
+      1
+    ],
+    "width": 768,
+    "height": 432,
+    "limit": 0
+  },
+  "default_scheduler": "EulerDiscreteScheduler"
+}

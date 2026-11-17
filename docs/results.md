@@ -81,6 +81,10 @@
 | 44,100 Hz → 16kHz 목표 | 1,000 Hz | 1600 | 1000 Hz | 16305 |
 | 48,000 Hz → 16kHz 목표 | 9,000 Hz (16kHz 나이퀴스트 초과) | 1600 | (잔여 성분) | 42 (약 -52dB 감쇠) |
 
+## 1-0. 확산 모델 비교 실험 (로컬, 2026-11-17)
+
+샘플러·스텝(X1), CFG 스케일(X2), 증류 모델(X3)을 비교했습니다. 자세한 결과는 [diffusion-experiments.md](diffusion-experiments.md)에 있습니다.
+
 ## 1-1. 실제 API 단일 호출 점검 (2026-11-05, `eval/check_providers.py`)
 
 구성: 음성 인식 Gemini(무료 등급), 기획 OpenAI, 이미지 OpenAI. 결과 파일은 `eval/results/provider_check_20261105_*.json`이고, 키는 들어 있지 않습니다(검사함).

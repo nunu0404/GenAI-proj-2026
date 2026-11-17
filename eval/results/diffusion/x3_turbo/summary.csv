@@ -1,0 +1,4 @@
+scheduler,steps,cfg,n_images,n_scenes,clip_mean,clip_ci_lo,clip_ci_hi,diversity,sec_median,sec_max
+default,4,0.0,24,12,28.18,25.88,30.4,0.1445,0.99,1.0
+default,2,0.0,24,12,28.15,26.3,29.85,0.1361,0.68,0.68
+default,1,0.0,24,12,29.19,26.96,31.33,0.1285,0.51,0.52

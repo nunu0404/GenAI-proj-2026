@@ -25,6 +25,11 @@ from pathlib import Path
 CLIP = "openai/clip-vit-base-patch32"
 
 
+def _feat(o):
+    """transformers 4.x 는 텐서, 5.x 는 출력 객체(pooler_output = 투영된 임베딩)를 돌려준다."""
+    return o if hasattr(o, "norm") else o.pooler_output
+
+
 def boot_ci(vals: list[float], n: int = 2000, seed: int = 0) -> tuple[float, float]:
     if len(vals) < 2:
         return (float("nan"), float("nan"))
@@ -45,14 +50,13 @@ def main(run_dir: Path) -> None:
     @torch.no_grad()
     def emb_text(texts):
         t = proc(text=texts, return_tensors="pt", padding=True, truncation=True)
-        e = model.get_text_features(**t)
-        return torch.nn.functional.normalize(e, dim=-1)
+        return torch.nn.functional.normalize(_feat(model.get_text_features(**t)), dim=-1)
 
     @torch.no_grad()
     def emb_img(paths):
         ims = [Image.open(p).convert("RGB") for p in paths]
         e = model.get_image_features(**proc(images=ims, return_tensors="pt"))
-        return torch.nn.functional.normalize(e, dim=-1)
+        return torch.nn.functional.normalize(_feat(e), dim=-1)
 
     scene_texts = sorted({r["scene_text"] for r in runs})
     temb = dict(zip(scene_texts, emb_text(scene_texts)))
