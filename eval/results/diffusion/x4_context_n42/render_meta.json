@@ -1,0 +1,10 @@
+{
+  "model": "sd-turbo",
+  "repo": "stabilityai/sd-turbo",
+  "steps": 2,
+  "cfg": 0.0,
+  "seeds": [
+    0,
+    1
+  ]
+}

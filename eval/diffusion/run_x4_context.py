@@ -18,6 +18,7 @@ import argparse
 import asyncio
 import json
 import random
+import re
 import statistics
 import sys
 import time
@@ -35,7 +36,10 @@ from app.providers.local_image import MODELS, SD_NEGATIVE, compose_sd_prompt, to
 from run_context_ab import ctx_of  # noqa: E402
 
 OUT = OUT_ROOT / "x4_context"
-SCEN = HERE.parent / "context_scenarios.json"
+SCEN_FILES = [HERE.parent / "context_scenarios.json", HERE.parent / "context_scenarios_lecture.json"]
+# 요청에 앞선 강의를 가리키는 말이 있는가(하위 분석용, 규칙으로 자동 분류)
+REF_RE = re.compile(r"(이걸|이것|이런|이 [가-힣 ]{1,10}(비유|흐름|상황)|그 [가-힣]+ 비유|그 비유|방금|반대로|같은 비유|"
+                    r"그 [가-힣]*(예시|등산객|팀))")
 GOLD = json.loads((HERE / "x4_gold.json").read_text())["gold"]
 
 
@@ -46,7 +50,7 @@ async def do_plan() -> None:
         sys.exit("TEXT_PROVIDER 가 mock 입니다. 실제 기획 LLM 으로 실행하세요.")
     OUT.mkdir(parents=True, exist_ok=True)
     recs = []
-    for sc in json.loads(SCEN.read_text()):
+    for sc in [x for f in SCEN_FILES for x in json.loads(f.read_text())]:
         for cond in ("A", "B"):
             t0 = time.monotonic()
             rec = {"scenario": sc["id"], "condition": cond, "text_model": text.model}
@@ -103,6 +107,15 @@ def boot_ci(vals, n=2000, seed=0):
     rnd = random.Random(seed)
     m = sorted(statistics.fmean(rnd.choices(vals, k=len(vals))) for _ in range(n))
     return m[int(0.025 * n)], m[int(0.975 * n) - 1]
+
+
+def perm_p(diffs: list[float], n: int = 20000, seed: int = 0) -> float:
+    """짝 차이의 부호를 무작위로 뒤집는 순열 검정(양측). 귀무가설: 맥락 포함 여부가 점수에 영향 없음."""
+    rnd = random.Random(seed)
+    obs = abs(statistics.fmean(diffs))
+    hit = sum(abs(statistics.fmean([d if rnd.random() < 0.5 else -d for d in diffs])) >= obs - 1e-12
+              for _ in range(n))
+    return (hit + 1) / (n + 1)
 
 
 def do_score() -> None:
@@ -167,15 +180,20 @@ def do_score() -> None:
     for sid, a, b in paired:
         pd = prompt_sim.get((sid, "B"), float("nan")) - prompt_sim.get((sid, "A"), float("nan"))
         lines.append(f"| {sid} | {a:.2f} | {b:.2f} | {b - a:+.2f} | {pd:+.2f} |")
-    if len(diffs) >= 2:
-        lo, hi = boot_ci(diffs)
-        wins = sum(d > 0 for d in diffs)
-        lines += ["", f"- 그림: B−A 평균 **{statistics.fmean(diffs):+.2f}** (95% CI {lo:+.2f}–{hi:+.2f}), "
-                      f"B 가 높은 시나리오 {wins}/{len(diffs)}"]
-    if len(pdiffs) >= 2:
-        lo, hi = boot_ci(pdiffs)
-        lines.append(f"- 그림 프롬프트(글): B−A 평균 **{statistics.fmean(pdiffs):+.2f}** (95% CI {lo:+.2f}–{hi:+.2f}), "
-                     f"n={len(pdiffs)}")
+    scen_req = {x["id"]: x["request"] for f in SCEN_FILES for x in json.loads(f.read_text())}
+
+    def stat_line(label: str, ds: list[float]) -> str:
+        if len(ds) < 2:
+            return f"- {label}: n={len(ds)} (계산 불가)"
+        lo, hi = boot_ci(ds)
+        return (f"- {label}: B−A 평균 **{statistics.fmean(ds):+.2f}** (95% CI {lo:+.2f}–{hi:+.2f}), "
+                f"B 우세 {sum(d > 0 for d in ds)}/{len(ds)}, 순열검정 p={perm_p(ds):.3f}")
+
+    lines += ["", stat_line("그림", diffs), stat_line("그림 프롬프트(글)", pdiffs)]
+    ref_d = [b - a for sid, a, b in paired if REF_RE.search(scen_req[sid])]
+    non_d = [b - a for sid, a, b in paired if not REF_RE.search(scen_req[sid])]
+    lines += ["", "하위 분석 (요청에 '그 비유·이걸·방금' 같은 지시어가 있는가, 규칙으로 분류)", "",
+              stat_line("그림 · 지시어 있음", ref_d), stat_line("그림 · 지시어 없음", non_d)]
     (OUT / "summary.md").write_text("\n".join(lines) + "\n")
     (OUT / "scores.jsonl").write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in runs) + "\n")
     print("\n".join(lines))
@@ -188,7 +206,13 @@ def main() -> None:
     ap.add_argument("--steps", type=int, default=2)
     ap.add_argument("--cfg", type=float, default=0.0)
     ap.add_argument("--seeds", type=int, nargs="+", default=[0, 1])
+    ap.add_argument("--out", default="x4_context", help="결과 폴더 이름 (eval/results/diffusion/<이름>)")
+    ap.add_argument("--only-original", action="store_true", help="최초 12개 시나리오만")
     a = ap.parse_args()
+    global OUT, SCEN_FILES
+    OUT = OUT_ROOT / a.out
+    if a.only_original:
+        SCEN_FILES = SCEN_FILES[:1]
     if a.stage == "plan":
         asyncio.run(do_plan())
     elif a.stage == "render":
