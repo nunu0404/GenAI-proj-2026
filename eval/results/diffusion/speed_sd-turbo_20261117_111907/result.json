@@ -1,0 +1,57 @@
+{
+  "model": "sd-turbo",
+  "repo": "stabilityai/sd-turbo",
+  "device": {
+    "device": "mps",
+    "torch": "2.15.0",
+    "machine": "arm64",
+    "platform": "macOS-26.6.2-arm64-arm-64bit"
+  },
+  "cfg": 0.0,
+  "size": [
+    768,
+    432
+  ],
+  "prompt": "flat vector illustration for a lecture slide: a student studying only past exam answers and failing a new question, overfitting metaphor, clean shapes, soft colors, no text",
+  "load_s": 264.92,
+  "warmup_s": 6.392,
+  "rows": [
+    {
+      "steps": 1,
+      "n": 3,
+      "times_s": [
+        0.601,
+        0.492,
+        0.492
+      ],
+      "median_s": 0.492,
+      "min_s": 0.492,
+      "max_s": 0.601
+    },
+    {
+      "steps": 2,
+      "n": 3,
+      "times_s": [
+        0.672,
+        0.669,
+        0.653
+      ],
+      "median_s": 0.669,
+      "min_s": 0.653,
+      "max_s": 0.672
+    },
+    {
+      "steps": 4,
+      "n": 3,
+      "times_s": [
+        0.963,
+        0.965,
+        0.985
+      ],
+      "median_s": 0.965,
+      "min_s": 0.963,
+      "max_s": 0.985
+    }
+  ],
+  "images": "/Users/netra/GenAI-proj/eval/results/diffusion/speed_sd-turbo_20261117_111907"
+}

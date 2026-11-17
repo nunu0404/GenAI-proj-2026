@@ -25,6 +25,11 @@ def make_image_provider(s: Settings) -> ImageProvider:
         from .openai_image import OpenAIImageProvider
         return OpenAIImageProvider(s.openai_image_model, s.image_size, s.image_quality, s.image_format,
                                    s.image_timeout_s, s.image_max_bytes)
+    if s.image_provider == "local":
+        from .local_image import LocalDiffusionImageProvider
+        return LocalDiffusionImageProvider(s.local_image_model, s.local_image_steps or None, s.local_image_cfg,
+                                           s.local_image_size, s.image_size, s.local_image_scheduler or None,
+                                           max_bytes=s.image_max_bytes)
     return MockImageProvider(delay_ms=s.mock_image_delay_ms, size=s.image_size)
 
 

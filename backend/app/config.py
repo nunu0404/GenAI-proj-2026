@@ -32,7 +32,7 @@ class Settings:
     # --- 제공자 선택 (mock | 실제) ---
     stt_provider: str = field(default_factory=lambda: _env("STT_PROVIDER", "mock"))  # gemini | openai | mock
     text_provider: str = field(default_factory=lambda: _env("TEXT_PROVIDER", "mock"))  # openai | anthropic | mock
-    image_provider: str = field(default_factory=lambda: _env("IMAGE_PROVIDER", "mock"))  # openai | mock
+    image_provider: str = field(default_factory=lambda: _env("IMAGE_PROVIDER", "mock"))  # openai | local | mock
 
     # --- STT (OpenAI Realtime transcription) ---
     openai_stt_model: str = field(default_factory=lambda: _env("OPENAI_STT_MODEL", "gpt-live-transcribe"))
@@ -83,6 +83,12 @@ class Settings:
     image_timeout_s: float = field(default_factory=lambda: float(_env("IMAGE_TIMEOUT_S", "150")))
     image_max_retries: int = field(default_factory=lambda: int(_env("IMAGE_MAX_RETRIES", "1")))
     image_max_bytes: int = 20 * 1024 * 1024
+    # --- 로컬 확산 모델 (IMAGE_PROVIDER=local) ---
+    local_image_model: str = field(default_factory=lambda: _env("LOCAL_IMAGE_MODEL", "sd-turbo"))  # sd-turbo | sd15
+    local_image_steps: int = field(default_factory=lambda: int(_env("LOCAL_IMAGE_STEPS", "0")))  # 0 = 모델 기본값
+    local_image_cfg: Optional[float] = field(default_factory=lambda: _float_or_none("LOCAL_IMAGE_CFG"))
+    local_image_size: str = field(default_factory=lambda: _env("LOCAL_IMAGE_SIZE", "768x432"))
+    local_image_scheduler: str = field(default_factory=lambda: _env("LOCAL_IMAGE_SCHEDULER", ""))  # ddim | ddpm | euler
 
     # --- 요청 감지 / 맥락 ---
     request_silence_ms: int = field(default_factory=lambda: int(_env("REQUEST_SILENCE_MS", "2500")))
@@ -131,8 +137,7 @@ class Settings:
                     "sample_rate": self.stt_sample_rate, "encoding": "pcm_s16le", "channels": 1},
             "text": {"provider": self.text_provider, "model": self.text_model,
                      "effort": self.openai_text_reasoning if self.text_provider == "openai" else self.text_effort},
-            "image": {"provider": self.image_provider, "model": self.openai_image_model if self.image_provider == "openai" else "mock",
-                      "size": self.image_size, "quality": self.image_quality, "format": self.image_format},
+            "image": self._image_info(),
             "mock": {
                 "stt": self.stt_provider == "mock",
                 "text": self.text_provider == "mock",
@@ -141,6 +146,15 @@ class Settings:
             "request_silence_ms": self.request_silence_ms,
             "max_queue": self.max_queue,
         }
+
+    def _image_info(self) -> dict:
+        if self.image_provider == "local":
+            return {"provider": "local", "model": self.local_image_model, "size": self.local_image_size,
+                    "steps": self.local_image_steps or "default", "cfg": self.local_image_cfg,
+                    "scheduler": self.local_image_scheduler or "default", "format": "jpeg"}
+        return {"provider": self.image_provider,
+                "model": self.openai_image_model if self.image_provider == "openai" else "mock",
+                "size": self.image_size, "quality": self.image_quality, "format": self.image_format}
 
     def credential_problems(self) -> list[str]:
         probs = []

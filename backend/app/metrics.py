@@ -105,6 +105,8 @@ def estimate_cost(s: Settings, u: Usage) -> Optional[float]:
             return None
         return (u.input_tokens * s.price_text_in_per_mtok + u.output_tokens * s.price_text_out_per_mtok) / 1e6
     if u.kind == "image":
+        if u.provider == "local":
+            return 0.0  # 로컬 실행: API 비용 없음 (전기·장비 비용은 제외)
         if s.price_image_text_in_per_mtok is None or s.price_image_out_per_mtok is None:
             return None
         if u.input_tokens is None or u.output_tokens is None:

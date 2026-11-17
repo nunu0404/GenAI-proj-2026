@@ -1,0 +1,17 @@
+{
+  "note": "X1~X3 고정 장면 세트. 개발자가 직접 작성(기획 LLM 출력이 아님). 기획 단계 image_prompt 와 같은 형식의 영어 장면 묘사이며, 글자 없이 그릴 수 있는 강의용 비유 장면만 담았다.",
+  "scenes": [
+    {"id": "P01", "topic": "과적합", "scene": "A student memorizes the answers of old exam papers stacked on a desk, then looks confused at a brand-new question sheet"},
+    {"id": "P02", "topic": "경사하강법", "scene": "A hiker walking down a foggy mountain valley step by step toward the lowest point, small footprints along a curved path"},
+    {"id": "P03", "topic": "학습률", "scene": "Three balls rolling into a bowl-shaped valley: one with tiny steps, one smoothly reaching the bottom, one bouncing over the edge"},
+    {"id": "P04", "topic": "어텐션", "scene": "A reader with a flashlight in a dark library, beams of light focusing more brightly on a few relevant books on the shelf"},
+    {"id": "P05", "topic": "VAE 잠재 공간", "scene": "Colorful clouds of points floating in a soft 2D space, neighboring clouds blending smoothly, a small arrow sampling a point from the middle"},
+    {"id": "P06", "topic": "확산 모델", "scene": "A row of five picture frames showing a cat emerging step by step from heavy static noise to a clear cat"},
+    {"id": "P07", "topic": "GAN", "scene": "An art forger painting a canvas while a detective with a magnifying glass inspects another painting, facing each other across a table"},
+    {"id": "P08", "topic": "데이터 누수", "scene": "A student secretly peeking at the answer key hidden under the exam paper during a test"},
+    {"id": "P09", "topic": "정규화", "scene": "A gardener trimming a wildly overgrown bush into a simple smooth rounded shape"},
+    {"id": "P10", "topic": "교차 검증", "scene": "A round pizza cut into five slices, one slice highlighted and set aside while the other four stay on the plate"},
+    {"id": "P11", "topic": "조건부 생성 (CFG)", "scene": "A sculptor carving a block of stone while looking at a reference sketch of a cat pinned on the wall"},
+    {"id": "P12", "topic": "편향-분산", "scene": "Four archery targets side by side with arrows clustered tightly off-center, scattered around the center, scattered off-center, and tightly at the bullseye"}
+  ]
+}

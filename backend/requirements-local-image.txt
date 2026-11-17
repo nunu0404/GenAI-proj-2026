@@ -1,0 +1,7 @@
+# 선택 설치: 로컬 확산 모델 이미지 생성(IMAGE_PROVIDER=local)과 eval/diffusion 실험용
+# Apple Silicon(MPS) 또는 CUDA. 모델 가중치는 처음 실행할 때 Hugging Face 에서 내려받는다(수 GB).
+torch>=2.5
+diffusers>=0.32
+transformers>=4.46
+accelerate>=1.0
+safetensors>=0.4

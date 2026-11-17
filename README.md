@@ -49,6 +49,18 @@ GEMINI_API_KEY=...
 - 모델 ID, 이미지 크기와 품질, 타임아웃, 재시도 횟수, 단가는 모두 환경변수로 조정합니다([backend/.env.example](backend/.env.example)).
 - 마이크는 `localhost` 또는 HTTPS에서만 동작합니다.
 
+### 그림을 로컬 확산 모델로 만들기 (선택, API 비용 0)
+
+```bash
+cd backend && uv pip install -r requirements-local-image.txt --python .venv/bin/python
+# .env: IMAGE_PROVIDER=local, LOCAL_IMAGE_MODEL=sd-turbo (또는 sd15)
+```
+
+- Stable Diffusion 계열 공개 모델(SD-Turbo, SD 1.5)을 Apple Silicon(MPS)이나 CUDA에서 돌립니다. 첫 실행 때 가중치(각 약 2~2.5GB)를 내려받고, 서버 시작 직후 백그라운드에서 미리 불러옵니다.
+- SD의 CLIP 텍스트 인코더는 77토큰까지만 읽으므로, 기획 단계의 긴 그림 프롬프트에서 장면만 꺼내 짧은 화풍 문구를 붙여 보냅니다. “글자 넣지 말 것”은 negative prompt로 보내며, CFG를 쓰는 sd15에서만 효과가 있습니다.
+- 라이선스: SD 1.5는 CreativeML OpenRAIL-M, SD-Turbo는 Stability AI 커뮤니티(비상업) 라이선스입니다. 수업 과제 용도로 사용합니다.
+- 속도와 품질 비교 실험은 [eval/diffusion/](eval/diffusion/)에 있습니다.
+
 ## 슬라이드 형태 (기획 단계에서 자동 선택)
 
 요청 인식(“다음 슬라이드에서는 …”)은 **규칙 기반**입니다. 그다음 어떤 형태로 만들지는 **기획 모델(LLM)**이 요청과 최근 강의 내용을 보고 고릅니다. “그래프로/표로/비교해서”처럼 말하면 그 형태를 따르고, 말하지 않으면 모델이 판단합니다. mock 모드에서만 단어 검사로 흉내 냅니다.

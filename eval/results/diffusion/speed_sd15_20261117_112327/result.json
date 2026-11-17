@@ -1,0 +1,54 @@
+{
+  "model": "sd15",
+  "repo": "stable-diffusion-v1-5/stable-diffusion-v1-5",
+  "device": {
+    "device": "mps",
+    "torch": "2.15.0",
+    "machine": "arm64",
+    "platform": "macOS-26.6.2-arm64-arm-64bit"
+  },
+  "cfg": 7.5,
+  "size": [
+    768,
+    432
+  ],
+  "prompt": "flat vector illustration for a lecture slide: a student studying only past exam answers and failing a new question, overfitting metaphor, clean shapes, soft colors, no text",
+  "load_s": 246.32,
+  "warmup_s": 68.112,
+  "rows": [
+    {
+      "steps": 50,
+      "n": 2,
+      "times_s": [
+        63.053,
+        66.371
+      ],
+      "median_s": 64.712,
+      "min_s": 63.053,
+      "max_s": 66.371
+    },
+    {
+      "steps": 25,
+      "n": 2,
+      "times_s": [
+        29.426,
+        31.557
+      ],
+      "median_s": 30.491,
+      "min_s": 29.426,
+      "max_s": 31.557
+    },
+    {
+      "steps": 10,
+      "n": 2,
+      "times_s": [
+        13.895,
+        13.928
+      ],
+      "median_s": 13.911,
+      "min_s": 13.895,
+      "max_s": 13.928
+    }
+  ],
+  "images": "/Users/netra/GenAI-proj/eval/results/diffusion/speed_sd15_20261117_112327"
+}

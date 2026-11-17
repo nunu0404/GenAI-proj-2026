@@ -1,6 +1,7 @@
 """NextSlide FastAPI 앱."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -43,9 +44,20 @@ def create_app(s: Optional[Settings] = None, text: Optional[TextProvider] = None
         for p in s.credential_problems():
             log.warning("설정 문제: %s", p)
         hub = Hub()
-        reg = Registry(s, db, hub, text or make_text_provider(s), image or make_image_provider(s))
+        img = image or make_image_provider(s)
+        reg = Registry(s, db, hub, text or make_text_provider(s), img)
         state.update(db=db, hub=hub, reg=reg, stt_factory=stt_factory or (lambda: make_stt_provider(s)))
         log.info("providers: %s", json.dumps(s.public_info()["mock"]))
+        # 로컬 확산 모델은 가중치 로드에 수 초가 걸리므로 시작 직후 백그라운드로 미리 올린다(서버 시작은 막지 않음)
+        warm = getattr(img, "warmup", None)
+        if warm is not None:
+            async def _warm():
+                try:
+                    await warm()
+                    log.info("로컬 이미지 모델 로드 완료 (%.1fs)", getattr(img, "load_seconds", 0) or 0)
+                except Exception as e:  # noqa: BLE001
+                    log.warning("로컬 이미지 모델 미리 로드 실패 (첫 생성 때 다시 시도): %s", e)
+            state["warmup_task"] = asyncio.create_task(_warm())
         yield
         await reg.shutdown()
         db.close()
