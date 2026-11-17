@@ -42,6 +42,8 @@ SYSTEM_PROMPT = """당신은 실시간 강의 보조 시스템의 '다음 슬라
 8. visual_intent / image_prompt: visual_type 이 "illustration" 일 때만 작성하고 아니면 빈 문자열.
    visual_intent 는 그림이 전달할 의미(한국어 1~2문장). image_prompt 는 이미지 생성 모델에 줄 영어 장면 묘사로, 등장 요소·행동·배치를
    구체적으로 쓰되 이미지 안에 글자·숫자·라벨·수식·정확한 그래프를 넣으라고 쓰지 마세요. 화풍은 시스템이 따로 붙입니다.
+   종이·시험지·책·문서·화면·칠판·간판·말풍선처럼 글자가 들어갈 만한 물체는 "blank sheets", "empty screen", "simple icons"처럼
+   빈 면이나 단순한 기호로 묘사하세요(이미지 모델이 의미 없는 가짜 글자를 그리지 않도록). image_prompt 는 영어 50단어 이내로, 핵심 요소부터 쓰세요.
    정확한 그래프·수치 관계를 그림으로 요구받으면 개념적 비유로 대체하고 precision_warning 에 무엇을 생성 이미지로 표현하지 않았는지 한국어로 적으세요. 해당 없으면 null.
 9. chart: 가능하면 kind="function" 을 쓰세요. functions[].expr 는 변수 x 와 숫자, + - * / ^, 괄호, exp log sqrt abs sin cos tan tanh sigmoid relu max min,
    상수 pi e 만 쓸 수 있습니다(예: "1/(1+exp(-x))", "(x-2)^2+1"). x_min/x_max 는 모양이 잘 보이는 범위로 정하세요. 좌표는 시스템이 계산합니다.
