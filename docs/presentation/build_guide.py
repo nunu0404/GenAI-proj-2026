@@ -999,6 +999,16 @@ python3 docs/presentation/build_guide.py</code></pre>
 </html>"""
     OUT.write_text(page)
     print("wrote", OUT, f"{OUT.stat().st_size/1e6:.2f} MB")
+    # GitHub serves raw .html as text/plain (the browser shows source instead of
+    # saving it), so also ship a zip, which browsers always download.
+    import zipfile
+    zpath = OUT.with_suffix(".zip")
+    info = zipfile.ZipInfo(OUT.name, date_time=(2026, 1, 1, 0, 0, 0))
+    info.compress_type = zipfile.ZIP_DEFLATED
+    info.external_attr = 0o644 << 16
+    with zipfile.ZipFile(zpath, "w") as z:
+        z.writestr(info, OUT.read_bytes())
+    print("wrote", zpath, f"{zpath.stat().st_size/1e6:.2f} MB")
 
 
 if __name__ == "__main__":

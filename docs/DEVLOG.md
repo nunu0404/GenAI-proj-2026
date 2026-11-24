@@ -584,3 +584,11 @@ Cloud Billing이 꺼진 Gemini 키는 무료 등급이라 입력 음성이 Googl
   - 한계와 남은 일, 재현 명령, 파일 지도
 - `build_guide.py`로 다시 만듭니다. 슬라이드 미리보기는 `assets/slides/`(PowerPoint로 PDF를 만든 뒤 래스터화).
 - **확인**: 감지 평가를 다시 실행해 56/60 그대로임을 확인. 헤드리스 Chrome으로 1400px·390px·어두운 화면을 캡처해 확인했고, 가로 스크롤과 콘솔 오류는 없었습니다. 확인 중 숫자 칸과 번호 배지의 클래스 이름 충돌, 모바일 표 줄바꿈, 어두운 화면 대비를 고쳤습니다.
+
+---
+
+## 2026-11-24 (26) — 해설서 내려받기 문제: zip도 함께 제공
+
+- **문제**: GitHub raw가 `.html`을 `text/plain`으로 보내서, 링크를 누르면 파일이 저장되지 않고 소스 코드가 화면에 뜹니다. 4MB라 GitHub 파일 화면에서도 미리보기가 안 됩니다.
+- **조치**: `build_guide.py`가 HTML과 함께 `docs/presentation/NextSlide_guide.zip`(2.86MB, HTML 1개만 들어 있음)도 만들도록 했습니다. zip은 브라우저가 항상 저장합니다. zip 안 파일의 날짜를 고정해, 내용이 같으면 다시 만들어도 zip이 바뀌지 않습니다.
+- 내려받기 링크: `https://github.com/nunu0404/GenAI-proj-2026/raw/main/docs/presentation/NextSlide_guide.zip`
