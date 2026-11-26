@@ -877,7 +877,7 @@ def build():
   <div class="stat"><b>영·한 대본</b><span>슬라이드 노트와 <code>script.md</code>에 같은 내용</span></div>
 </div>
 <p><b>구성</b>: 청자가 따라오기 쉽게 짰습니다. 문제 상황(2장)과 해결 장면(3장)을 먼저 보여 주고, 실제 발표자 화면으로 동작을 설명한 뒤(4장), 핵심 아이디어를 실제 그림 한 쌍으로 보여 줍니다(5장). 실험은 “빠른가?”, “가이던스는 무엇을 바꾸나?”, “맥락이 정말 도움이 되나?” 세 질문으로 풀었습니다. 장마다 메시지는 하나이고, 방법·신뢰구간 같은 세부는 말로 하거나 부록(14~16장)에 두었습니다.</p>
-<p><b>디자인</b>: <a href="https://github.com/zarazhangrui/frontend-slides">frontend-slides</a>의 방식대로 같은 표지를 세 가지 스타일로 만들어 비교한 뒤, 이 프로젝트에 맞춰 새로 만든 “실시간 자막” 스타일을 골랐습니다. 어두운 바탕에 세리프 제목(Instrument Serif), 본문(Instrument Sans), 라벨(IBM Plex Mono)을 쓰고, 포인트 색은 호박색 하나만 씁니다. PowerPoint에서 바로 고칠 수 있는 편집형 PPTX이고, 발표할 컴퓨터에는 <code>docs/presentation/fonts/</code>의 글꼴을 먼저 설치해야 그대로 보입니다.</p>
+<p><b>디자인</b>: 발표자의 IR 자료 스타일을 따랐습니다. 밝은 회색 바탕에 흰 카드를 깔고, 장마다 위쪽에 “왼쪽 라벨 블록 + 핵심 메시지 한두 줄” 띠를 둡니다. 소제목은 대괄호 막대로 표시합니다. 색은 파랑(#285592·#2D66AD), 강조 빨강(#DD5C47), 남색(#183257)이고, 글꼴은 나눔스퀘어 네오입니다. 결과를 보여 주는 실험 장은 라벨 블록을 빨강으로, 문제·한계 장은 짙은 회색으로 구분했습니다. PowerPoint에서 바로 고칠 수 있는 편집형 PPTX이고, 발표할 컴퓨터에는 나눔스퀘어 네오를 먼저 설치해야 그대로 보입니다(<code>docs/presentation/fonts/README.md</code>).</p>
 <h3 id="deck-flow">6-1. 흐름과 평가 기준</h3>
 <div class="flow">
   <div class="box"><b>문제·장면</b>1~3장</div><span class="arrow">→</span>
@@ -968,7 +968,7 @@ python3 docs/presentation/build_guide.py</code></pre>
 <tr><td><code>docs/presentation/NextSlide_final.pptx</code></td><td>발표 PPT (영어 본문 13장 + 부록 3장, 노트에 영·한 대본)</td></tr>
 <tr><td><code>docs/presentation/script.md</code></td><td>발표 대본, 시연 대본, 예상 질문</td></tr>
 <tr><td><code>docs/presentation/build_deck.js</code> · <code>build_guide.py</code></td><td>PPT·대본 생성 스크립트, 이 해설서 생성 스크립트</td></tr>
-<tr><td><code>docs/presentation/fonts/</code></td><td>덱 글꼴(Instrument Serif·Sans, IBM Plex Mono, OFL). 발표 컴퓨터에 설치</td></tr>
+<tr><td><code>docs/presentation/fonts/README.md</code></td><td>덱 글꼴(나눔스퀘어 네오) 설치 안내</td></tr>
 <tr><td><code>docs/diffusion-experiments.md</code></td><td>확산 실험 X1~X5, X4 상세 기록</td></tr>
 <tr><td><code>docs/results.md</code></td><td>테스트, 실제 API 점검, 감지 평가, 미검증 항목</td></tr>
 <tr><td><code>docs/architecture.md</code></td><td>구조와 데이터 흐름</td></tr>
