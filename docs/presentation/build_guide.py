@@ -177,6 +177,12 @@ def parse_script():
                                        "en": en.group(1) if en else "", "ko": ko.group(1) if ko else ""}
             if "### 시연 대본" in body:
                 demo_lines = body.split("### 시연 대본", 1)[1].split("\n", 1)[1].strip().splitlines()
+        elif head.startswith("부록"):
+            for bm in re.finditer(r"^### (\d+)\. (.+?)\n(.*?)(?=^### |\Z)", body, re.M | re.S):
+                en = re.search(r"^\*\*EN\*\* (.+)$", bm.group(3), re.M)
+                ko = re.search(r"^\*\*KO\*\* (.+)$", bm.group(3), re.M)
+                slides[int(bm.group(1))] = {"title": bm.group(2), "t": "",
+                                            "en": en.group(1) if en else "", "ko": ko.group(1) if ko else ""}
         elif head.startswith("예상 질문"):
             for q in re.split(r"^\*\*Q\d+\. ", body, flags=re.M)[1:]:
                 qh, _, rest = q.partition("\n")
@@ -217,53 +223,65 @@ def demo_html(lines):
 
 SLIDE_INFO = {  # 번호: (역할, 화면 구성, 뒷받침 근거)
     1: ("무엇을 만들었는지 한 문장으로 알립니다.",
-        "제목·부제, 실제로 생성된 슬라이드 한 장(학습률이 클 때를 등산객에 비유한 그림), 그 요청을 실시간 자막처럼 보여 주는 아래 줄.",
-        "11-05 실제 API 점검 G③의 결과 화면."),
-    2: ("왜 필요한지(평가 기준 ‘유용성’)를 보여 줍니다.",
-        "즉석 비유 발화 예시, 세 가지 어려움(즉석 비유·예상 못 한 질문·흐름 끊김), 목표 문장.",
-        "사용 시나리오 설명."),
-    3: ("창의성(새로움 15점)의 중심 주장인 ‘조건 설계’를 제시합니다.",
-        "조건 3요소(요청·최근 발화·현재 장) → 슬라이드 계획 도식, ZeroPrep과의 비교표.",
-        "docs/qa-supplement-plan.md 2절(ZeroPrep README·코드 확인)."),
-    4: ("실제로 동작하는 시스템(구현 점수)을 보여 줍니다.",
-        "6단계 흐름(마이크 → STT → 감지기 → 맥락 고정 → 기획 LLM → 텍스트 먼저·그림 다음), 수치 3개.",
-        "감지 평가 56/60, pytest 112개, 로컬 E2E 6.2초(n=1)."),
-    5: ("기술 이해: 17강 31쪽(그럴듯한 그림도 프롬프트를 놓친다)과 설계를 연결합니다.",
-        "실제 생성된 그림형·수식형·비교형 슬라이드 3장.",
+        "제목, 한 줄 설명, 시스템이 실제로 만든 슬라이드 한 장(학습률이 클 때를 등산객에 비유).",
+        "11-05 실제 API 점검의 결과 화면."),
+    2: ("청자가 공감할 문제 상황을 그림으로 보여 줍니다(유용성).",
+        "강의 시간 축 위에 미리 만든 장 1~4, 그 사이 즉석 비유가 나온 순간과 비어 있는 장.",
+        "사용 시나리오."),
+    3: ("해결 장면을 먼저 보여 줘서 무엇을 하는 시스템인지 바로 이해시킵니다.",
+        "말한 한국어 문장과 영어 번역 → 실제로 만들어진 슬라이드(과적합을 시험 문제를 외운 학생에 비유).",
+        "11-05 실제 API 전체 흐름(텍스트 입력 경로) 결과 화면."),
+    4: ("동작을 세 단계(듣기·판단·만들기)로 설명합니다(구현).",
+        "실제 발표자 화면 캡처 위에 세 영역(음성 인식·생성 요청·다음 장 미리보기)을 번호로 표시.",
+        "감지 평가 56/60(놓친 요청 0), 맥락 고정(직전 90초)."),
+    5: ("핵심 아이디어(강의 맥락을 조건으로 쓴다)를 구체적인 예로 보여 줍니다(창의성).",
+        "역사 수업 발화와 요청 → 요청만 준 그림(현대 교실)과 맥락까지 준 그림(조선 과거 시험장).",
+        "X4 시나리오 S09의 실제 생성 그림(시드 0)."),
+    6: ("17강 내용(이미지 모델은 글자·개수·관계에 약하다)과 설계를 연결합니다(기술 이해).",
+        "실제로 만든 그림형·수식형·비교형 슬라이드 3장.",
         "11-05 실제 API 점검 G·H."),
-    6: ("시연으로 구현을 증명합니다.",
-        "확인할 네 가지(일반 발화 무시, 요청 시 텍스트 먼저, 디노이징 미리보기, 부정 지시 무시).",
+    7: ("시연으로 구현을 증명합니다.",
+        "볼거리 네 가지(일반 발화 무시, 요청 시 글 먼저, 그림이 단계별로 만들어짐, 부정 지시 무시).",
         "시연 대본(아래 6-3)."),
-    7: ("수업 개념(확산·DDIM·CFG·증류·x̂₀)을 이미지 단계에 적용한 내용을 설명합니다.",
-        "로컬 모델 두 종의 특징, x̂₀ 미리보기 원리, 4·12·22/25 스텝과 완성 그림.",
+    8: ("수업 개념(확산·DDIM·x̂₀)을 이미지 단계에 적용한 것을 보여 줍니다(기술 이해).",
+        "25단계 중 4·12·22단계의 x̂₀ 예측과 완성 그림.",
         "디노이징 미리보기 구현·확인(5-12)."),
-    8: ("실험 X2(CFG)와 X1의 교훈을 보여 줍니다.",
-        "CFG별 장면 일치도·다양성 그래프 2개, ‘CLIP은 품질을 못 본다’ 경고.",
-        "X1, X2 (5-4, 5-5)."),
-    9: ("실험 X3로 시스템 기본값(SD-Turbo 2스텝)을 정한 근거를 보여 줍니다.",
-        "스텝·모델별 그림 1장 시간 막대, 약 16배·CLIP 28.2 대 25.0, 해석상 주의점.",
-        "X3, 속도 기준선 (5-3, 5-6)."),
-    10: ("핵심 실험 X4로 조건 설계의 효과를 검증합니다.",
-         "+2.10(p=0.010), 보완 질문 7 → 0, 글 +6.41 → 그림 +2.10, A/B 예시 그림.",
+    9: ("실험 1: 실시간 강의에 쓸 만큼 빠른가.",
+        "SD 1.5 25스텝 11.1초 대 SD-Turbo 2스텝 0.68초 막대, 그림 0.7초·전체 약 6초.",
+        "X3, 로컬 E2E(n=1) (5-6, 5-11)."),
+    10: ("실험 2: 가이던스 세기를 올리면 무엇이 바뀌나.",
+         "같은 프롬프트·시드에서 가이던스 1·3·7.5·12 그림, 프롬프트 일치도와 다양성 그래프.",
+         "X2, X1 (5-4, 5-5)."),
+    11: ("실험 3(핵심): 강의 맥락이 정말 도움이 되나.",
+         "실험 설계 세 줄, +2.1(p=0.010), 되묻기 7 → 0, 시나리오 28개의 B−A 막대.",
          "X4 확장 42개 (5-8)."),
-    11: ("실패와 한계를 정직하게 분석합니다(실험·분석 점수).",
-         "카드 4개: 가짜 글자, CLIP 글자 판정 실패, 77토큰 버그 발견·수정, 평가의 한계.",
-         "X5, 글자 규칙, 77토큰 (5-7, 5-9, 5-10)."),
-    12: ("결론 세 가지와 다음 단계를 정리하고 질문을 받습니다.",
-         "요약 3줄, 다음 할 일(사람 평가·실제 STT 전사·지연 n≥10).",
-         "앞의 모든 실험."),
+    12: ("아직 안 되는 것을 정직하게 밝힙니다(실험·분석).",
+         "가짜 글자가 생긴 실제 그림, 한계 세 가지(가짜 글자·CLIP 하나뿐·직접 만든 평가 세트), 다음 단계.",
+         "X5, 글자 규칙 (5-7, 5-9)."),
+    13: ("결론 세 문장과 질문 받기.",
+         "정리 세 문장, Thank you · Questions?",
+         "앞의 실험 전체."),
+    14: ("부록: 기존 도구와의 차이를 물으면 씁니다.",
+         "ZeroPrep 같은 실시간 발표 도구와 NextSlide 비교표.",
+         "docs/qa-supplement-plan.md 2절(ZeroPrep README·코드 확인)."),
+    15: ("부록: 감지기·테스트·속도를 물으면 씁니다.",
+         "감지 56/60(놓친 요청 0·잘못 생성 1·불필요한 되묻기 3), 테스트 112개, 전체 흐름 시간표(로컬 6.2초, API 20.0초).",
+         "감지 평가, pytest, 실제 API 점검과 로컬 E2E."),
+    16: ("부록: 실험 방법을 물으면 씁니다.",
+         "CLIP 점수 방식, 장면·시드 수, 신뢰구간·순열 검정, X1 결과, SD-Turbo 해석 주의, 77토큰 버그, 버린 지표.",
+         "3장 실험 공통 원칙, 5장 실험별 상세."),
 }
 
 
 def slides_html(script):
     out = []
-    for n in range(1, 13):
-        s = script.get(n, {"title": "", "t": "", "en": "", "ko": ""})
+    for n in sorted(script):
+        s = script[n]
         role, scr, ev = SLIDE_INFO[n]
         out.append(f'''<article class="slide-card" id="slide-{n}">
   {figure(f"docs/presentation/assets/slides/s{n:02d}.jpg", f"{n}번 슬라이드: {s['title']}")}
   <div class="slide-body">
-    <h4><span class="badge-n">{n}</span>{esc(s['title'])} <span class="pill">{s['t']}</span></h4>
+    <h4><span class="badge-n">{n}</span>{esc(s['title'])} <span class="pill">{s['t'] or "부록"}</span></h4>
     <dl class="kv"><dt>역할</dt><dd>{esc(role)}</dd><dt>화면</dt><dd>{esc(scr)}</dd><dt>근거</dt><dd>{esc(ev)}</dd></dl>
     <details><summary>발표 대본 (영어 · 한국어)</summary>
       <p class="en" lang="en">{md_inline(s['en'])}</p><p class="ko">{md_inline(s['ko'])}</p></details>
@@ -854,25 +872,26 @@ def build():
 
 <h2 id="deck">6. 발표 PPT 해설</h2>
 <div class="stats">
-  <div class="stat"><b>12장</b><span>영어 발표, 16:9 와이드</span></div>
-  <div class="stat"><b>약 10분</b><span>대본 기준 10분 5초, 시연 2분 포함</span></div>
+  <div class="stat"><b>13장 + 부록 3장</b><span>영어 발표, 16:9 와이드</span></div>
+  <div class="stat"><b>약 10분</b><span>대본 기준 10분, 시연 2분 포함</span></div>
   <div class="stat"><b>영·한 대본</b><span>슬라이드 노트와 <code>script.md</code>에 같은 내용</span></div>
 </div>
-<p><b>디자인</b>: <a href="https://github.com/zarazhangrui/frontend-slides">frontend-slides</a>의 방식대로 같은 표지를 세 가지 스타일로 만들어 비교한 뒤, 이 프로젝트에 맞춰 새로 만든 “실시간 자막” 스타일을 골랐습니다. 어두운 바탕에 세리프 제목(Instrument Serif), 본문(Instrument Sans), 라벨(IBM Plex Mono)을 쓰고, 포인트 색은 호박색 하나만 씁니다. 장마다 아래쪽에 측정 방법·출처를 자막처럼 한 줄로 둡니다. PowerPoint에서 바로 고칠 수 있는 편집형 PPTX이고, 발표할 컴퓨터에는 <code>docs/presentation/fonts/</code>의 글꼴을 먼저 설치해야 그대로 보입니다.</p>
+<p><b>구성</b>: 청자가 따라오기 쉽게 짰습니다. 문제 상황(2장)과 해결 장면(3장)을 먼저 보여 주고, 실제 발표자 화면으로 동작을 설명한 뒤(4장), 핵심 아이디어를 실제 그림 한 쌍으로 보여 줍니다(5장). 실험은 “빠른가?”, “가이던스는 무엇을 바꾸나?”, “맥락이 정말 도움이 되나?” 세 질문으로 풀었습니다. 장마다 메시지는 하나이고, 방법·신뢰구간 같은 세부는 말로 하거나 부록(14~16장)에 두었습니다.</p>
+<p><b>디자인</b>: <a href="https://github.com/zarazhangrui/frontend-slides">frontend-slides</a>의 방식대로 같은 표지를 세 가지 스타일로 만들어 비교한 뒤, 이 프로젝트에 맞춰 새로 만든 “실시간 자막” 스타일을 골랐습니다. 어두운 바탕에 세리프 제목(Instrument Serif), 본문(Instrument Sans), 라벨(IBM Plex Mono)을 쓰고, 포인트 색은 호박색 하나만 씁니다. PowerPoint에서 바로 고칠 수 있는 편집형 PPTX이고, 발표할 컴퓨터에는 <code>docs/presentation/fonts/</code>의 글꼴을 먼저 설치해야 그대로 보입니다.</p>
 <h3 id="deck-flow">6-1. 흐름과 평가 기준</h3>
 <div class="flow">
-  <div class="box"><b>문제</b>1~2장</div><span class="arrow">→</span>
-  <div class="box"><b>아이디어</b>3장</div><span class="arrow">→</span>
-  <div class="box"><b>시스템</b>4~5장</div><span class="arrow">→</span>
-  <div class="box dark"><b>시연</b>6장</div><span class="arrow">→</span>
-  <div class="box"><b>실험</b>7~10장</div><span class="arrow">→</span>
-  <div class="box"><b>한계·정리</b>11~12장</div>
+  <div class="box"><b>문제·장면</b>1~3장</div><span class="arrow">→</span>
+  <div class="box"><b>동작·아이디어</b>4~6장</div><span class="arrow">→</span>
+  <div class="box dark"><b>시연</b>7장</div><span class="arrow">→</span>
+  <div class="box"><b>수업 개념</b>8장</div><span class="arrow">→</span>
+  <div class="box"><b>실험 3개</b>9~11장</div><span class="arrow">→</span>
+  <div class="box"><b>한계·정리</b>12~13장</div>
 </div>
 <div class="tbl"><table><thead><tr><th>평가 항목 (17강 9~10쪽)</th><th class="num">배점</th><th>PPT에서 다루는 곳</th></tr></thead><tbody>
-<tr><td>창의성·독창성</td><td class="num">30</td><td>3장 조건 설계, ZeroPrep 비교 · 2장 유용성 · 10장 검증</td></tr>
-<tr><td>기술 이해</td><td class="num">15~20</td><td>5장 17강 31쪽과 설계 연결 · 7장 DDIM·CFG·증류·x̂₀</td></tr>
-<tr><td>구현</td><td class="num">15~20</td><td>4장 시스템과 수치 · 6장 실시간 시연</td></tr>
-<tr><td>실험·분석</td><td class="num">20~25</td><td>8~10장 X1~X4 · 11장 실패와 한계</td></tr>
+<tr><td>창의성·독창성</td><td class="num">30</td><td>5장 강의 맥락 아이디어 · 2~3장 유용성 · 11장 검증 · 부록 14장 ZeroPrep 비교</td></tr>
+<tr><td>기술 이해</td><td class="num">15~20</td><td>6장 17강과 설계 연결 · 8장 확산·DDIM·x̂₀ · 9~10장 증류·CFG</td></tr>
+<tr><td>구현</td><td class="num">15~20</td><td>3~4장 실제 결과와 발표자 화면 · 7장 실시간 시연 · 부록 15장 수치</td></tr>
+<tr><td>실험·분석</td><td class="num">20~25</td><td>9~11장 실험 3개(X3·X2·X4) · 12장 한계 · 부록 16장 측정 방법</td></tr>
 <tr><td>발표·질의응답</td><td class="num">10~15</td><td>대본, 예상 질문 8개(아래 6-4)</td></tr>
 </tbody></table></div>
 <p class="meta">같은 쪽 안에서 막대와 표의 배점이 달라 범위로 적었습니다(<code>docs/evaluation-criteria-analysis.md</code>).</p>
@@ -892,7 +911,7 @@ def build():
 <li>세션을 미리 만들고, 청중 화면을 두 번째 창이나 프로젝터에 띄웁니다. 화면이 하나면 전체 화면 발표 모드(<kbd>M</kbd> 마이크, <kbd>→</kbd> 다음 장)를 씁니다.</li>
 <li>마이크 권한, 네트워크(기획 LLM과 STT는 인터넷 필요)를 확인합니다.</li>
 <li>같은 흐름을 녹화한 <b>백업 영상</b>을 준비합니다. 마이크가 안 되면 텍스트 입력의 “발화로 입력”에 같은 문장을 넣어 계속합니다.</li>
-<li>시연을 발표 끝에 하려면 PowerPoint에서 6번 장을 12번 장 앞으로 옮깁니다.</li>
+<li>시연을 발표 끝에 하려면 PowerPoint에서 7번 장을 13번 장 앞으로 옮깁니다.</li>
 </ul>
 
 <h3 id="deck-qa">6-4. 예상 질문과 답변</h3>
@@ -946,7 +965,7 @@ python3 docs/presentation/build_guide.py</code></pre>
 
 <h2 id="files">9. 파일 지도</h2>
 <div class="tbl"><table><thead><tr><th>위치</th><th>내용</th></tr></thead><tbody>
-<tr><td><code>docs/presentation/NextSlide_final.pptx</code></td><td>발표 PPT (영어 12장, 노트에 영·한 대본)</td></tr>
+<tr><td><code>docs/presentation/NextSlide_final.pptx</code></td><td>발표 PPT (영어 본문 13장 + 부록 3장, 노트에 영·한 대본)</td></tr>
 <tr><td><code>docs/presentation/script.md</code></td><td>발표 대본, 시연 대본, 예상 질문</td></tr>
 <tr><td><code>docs/presentation/build_deck.js</code> · <code>build_guide.py</code></td><td>PPT·대본 생성 스크립트, 이 해설서 생성 스크립트</td></tr>
 <tr><td><code>docs/presentation/fonts/</code></td><td>덱 글꼴(Instrument Serif·Sans, IBM Plex Mono, OFL). 발표 컴퓨터에 설치</td></tr>

@@ -2,46 +2,52 @@
 
 발표 파일: [NextSlide_final.pptx](NextSlide_final.pptx). 슬라이드 노트에도 같은 대본이 들어 있습니다. 이 파일과 노트는 `build_deck.js`가 함께 만듭니다.
 
-- 예상 시간: 약 10분 5초(시연 2분 포함).
-- 시연을 발표 끝에 하려면 PowerPoint에서 6번 슬라이드(Live demo)를 12번(Takeaways) 앞으로 옮기면 됩니다. 대본 순서도 같이 옮깁니다.
+- 예상 시간: 약 10분 0초(본문 13장, 시연 2분 포함). 부록 3장은 질문이 나올 때만 씁니다.
+- 시연을 발표 끝에 하려면 PowerPoint에서 7번 슬라이드(Live demo)를 13번(To sum up) 앞으로 옮기면 됩니다. 대본 순서도 같이 옮깁니다.
 - [name] 자리에 이름을 넣어 말하세요. 표지에는 이름이 없으니 필요하면 직접 추가하세요.
 - 글꼴: 덱은 Instrument Serif·Instrument Sans·IBM Plex Mono를 씁니다(OFL). 발표할 컴퓨터에 `fonts/` 폴더의 글꼴을 먼저 설치하세요. 없으면 PowerPoint가 다른 글꼴로 바꿔 보여 줍니다.
 
-## 1. Title (0:30)
+## 1. Title (0:25)
 
-**EN** Hi, I'm [name]. My project is NextSlide. The idea is simple: while I'm lecturing, I say what the next slide should show, and the system builds it while I keep talking. Today I'll explain how it works, run a short live demo, and then show experiments on the image stage using the diffusion concepts from this course.
+**EN** Hi, I'm [name]. My project is NextSlide. The idea fits in one sentence: while I'm lecturing, I say what the next slide should show, and it gets made while I keep talking.
 
-**KO** 안녕하세요, [이름]입니다. 제 프로젝트는 NextSlide입니다. 아이디어는 간단합니다. 강의하면서 다음 장에 무엇을 보여 줄지 말하면, 제가 계속 말하는 동안 시스템이 그 장을 만듭니다. 오늘은 동작 방식을 설명하고, 짧게 시연한 뒤, 이 수업에서 배운 확산 모델 개념으로 이미지 단계를 실험한 결과를 보여 드리겠습니다.
+**KO** 안녕하세요, [이름]입니다. 제 프로젝트는 NextSlide입니다. 아이디어는 한 문장입니다. 강의하면서 다음 장에 무엇을 보여 줄지 말하면, 제가 계속 말하는 동안 그 장이 만들어집니다.
 
-## 2. The problem (0:45)
+## 2. The problem (0:40)
 
-**EN** Real lectures are not fixed. A good lecturer invents an analogy on the spot, like: overfitting is a student who memorized the exam answers. Students ask questions the deck never planned for. But slides are prepared in advance. If I want a new slide in the middle of a lecture, I have to stop, open an editor, and lose the flow. So my goal is: the lecturer keeps talking, and the next slide gets ready.
+**EN** Anyone who has taught knows this moment. The slides were made before class. Then, halfway through, the students look lost, so you come up with an analogy on the spot. Say: overfitting is like a student who memorized the answers to old exams. It's a good explanation, but there's no slide for it. And making one right then means stopping the lecture.
 
-**KO** 실제 강의는 정해진 대로 흘러가지 않습니다. 좋은 강사는 '과적합은 시험 답을 외운 학생과 같다'처럼 즉석에서 비유를 만들고, 학생들은 슬라이드에 없던 질문을 합니다. 하지만 슬라이드는 미리 만들어 둔 것입니다. 강의 도중 새 장이 필요하면 멈추고 편집기를 열어야 해서 흐름이 끊깁니다. 그래서 목표는 '강사는 계속 말하고, 다음 장은 알아서 준비된다'입니다.
+**KO** 가르쳐 본 사람이라면 아는 순간이 있습니다. 슬라이드는 수업 전에 만들어 둡니다. 그런데 중간에 학생들이 잘 못 따라오는 것 같으면 그 자리에서 비유를 하나 떠올립니다. 예를 들어 '과적합은 기출문제 답을 외운 학생과 같다' 같은 것이요. 좋은 설명인데 보여 줄 슬라이드가 없습니다. 그 자리에서 만들려면 강의를 멈춰야 합니다.
 
-## 3. What's new (0:50)
+## 3. Just say it (0:40)
 
-**EN** The key idea is what we condition on. In most tools, the user writes a prompt. In NextSlide, the condition is built automatically from the lecture: the request detected from speech, the last ninety seconds of what I said, and the current slide. That's why a vague request like 'draw that hiker analogy' still works. Compared with live-staging tools such as ZeroPrep, there are three differences. Only explicit requests trigger a slide. The new slide goes to the presenter first, so I can check it before the audience sees it. And the system picks the right form, such as an equation, a table, or a chart, instead of always making a picture.
+**EN** With NextSlide, I just say it. I gave the system this sentence in Korean: 'In the next slide, I'll explain overfitting by comparing it to a student who memorized the exam questions.' It recognized a request and made this slide: a title, three short points, and a picture.
 
-**KO** 핵심은 '무엇을 조건으로 주느냐'입니다. 대부분의 도구에서는 사용자가 프롬프트를 씁니다. NextSlide에서는 강의에서 조건을 자동으로 만듭니다. 음성에서 감지한 요청, 직전 90초 동안 한 말, 그리고 현재 장입니다. 그래서 '그 등산객 비유 그려 줘'처럼 모호한 요청도 처리됩니다. ZeroPrep 같은 실시간 발표 도구와 비교하면 차이는 세 가지입니다. 명시적인 요청에만 새 장을 만듭니다. 새 장은 발표자에게 먼저 보이므로, 청중이 보기 전에 확인할 수 있습니다. 그리고 항상 그림을 만들지 않고 수식·표·그래프처럼 맞는 형태를 고릅니다.
+**KO** NextSlide에서는 그냥 말하면 됩니다. 시스템에 '다음 슬라이드에서는 과적합을 시험 문제를 외운 학생에 비유해서 설명하겠습니다'라는 문장을 넣었더니, 요청으로 알아듣고 이 장을 만들었습니다. 제목, 짧은 설명 세 줄, 그림입니다.
 
-## 4. Pipeline (0:50)
+## 4. How it works (0:50)
 
-**EN** Here is one request end to end. The browser streams microphone audio, and Gemini transcribes it live. A rule-based detector looks for phrases like 'in the next slide' and ignores negations and quotes. On my 60-example test set it got 56 right. When a request is confirmed, the context is frozen, so later speech doesn't leak in. The planner LLM returns a strict JSON slide spec and chooses the form. The title and bullets appear first in the presenter preview, and the image follows. With the local SD-Turbo model, one request took about six seconds from request to finished slide.
+**EN** This is my presenter screen. It works in three steps. One, it listens: my speech is transcribed live by Gemini. Two, it decides: a rule-based detector reacts only to clear requests like 'in the next slide'. If I say 'don't make a slide', or I'm quoting someone, it does nothing. On a test set of 60 sentences it was right 56 times, and it never missed a request. Three, it makes the slide: a language model writes the title and points from my request and the last ninety seconds of the lecture, and then the picture is drawn. I see the new slide first; the audience sees it when I advance.
 
-**KO** 요청 한 건의 흐름입니다. 브라우저가 마이크 음성을 보내고, Gemini가 실시간으로 받아 적습니다. 규칙 기반 감지기가 '다음 슬라이드에서는' 같은 표현을 찾고, 부정이나 인용은 무시합니다. 직접 만든 60개 평가 세트에서 56개를 맞혔습니다. 요청이 확정되면 맥락을 고정해서 이후 발화가 섞이지 않게 합니다. 기획 LLM은 엄격한 JSON 형식으로 슬라이드 내용을 돌려주고 형태를 고릅니다. 제목과 본문이 먼저 발표자 미리보기에 뜨고, 그림이 뒤따라옵니다. 로컬 SD-Turbo로는 요청부터 완성까지 약 6초가 걸렸습니다(1회 측정).
+**KO** 제 발표자 화면입니다. 세 단계로 동작합니다. 첫째, 듣습니다. 제 말을 Gemini가 실시간으로 받아 적습니다. 둘째, 판단합니다. 규칙 기반 감지기가 '다음 슬라이드에서는' 같은 분명한 요청에만 반응합니다. '만들지 마세요'라고 하거나 남의 말을 인용하면 아무것도 하지 않습니다. 60문장 평가 세트에서 56개를 맞혔고, 요청을 놓친 적은 없었습니다. 셋째, 만듭니다. 언어 모델이 제 요청과 직전 90초 동안 한 말을 보고 제목과 본문을 쓰고, 그다음 그림을 그립니다. 새 장은 제가 먼저 보고, 청중은 제가 넘길 때 봅니다.
 
-## 5. Right form for each content (0:40)
+## 5. Lecture context (0:50)
 
-**EN** One design choice comes straight from Lecture 17: image models make plausible pictures, but they still get text, counts, and relations wrong. So the image model only draws text-free illustrations. Equations are rendered with KaTeX, comparisons and tables use fixed layouts, and chart values are computed by the server, not invented by the LLM. These three slides were generated by the system with real APIs.
+**EN** This is the core idea. Requests in a lecture are often vague. Here, a history teacher has been talking about the civil service exam in the Joseon dynasty, and then says: 'In the next slide, show the exam hall.' With only that sentence, the system draws a modern classroom. With what the teacher said just before, it draws the Joseon exam ground the teacher meant. No one wrote a prompt; the context came from the lecture. Whether this really helps is my main experiment, which I'll show later.
 
-**KO** 설계 선택 하나는 17강에서 바로 나왔습니다. 이미지 모델은 그럴듯한 그림을 그리지만 글자, 개수, 관계는 자주 틀립니다. 그래서 이미지 모델에는 글자 없는 설명 그림만 맡깁니다. 수식은 KaTeX로, 비교와 표는 고정 레이아웃으로 그리고, 그래프 값은 LLM이 지어내지 않고 서버가 계산합니다. 이 세 장은 모두 실제 API로 시스템이 만든 결과입니다.
+**KO** 핵심 아이디어입니다. 강의 중의 요청은 모호한 경우가 많습니다. 역사 선생님이 조선의 과거 시험 이야기를 하다가 '다음 슬라이드에서는 시험장 풍경을 보여 주세요'라고 합니다. 이 문장만 주면 시스템은 현대식 교실을 그립니다. 직전에 한 말까지 주면 선생님이 뜻한 조선의 과거 시험장을 그립니다. 아무도 프롬프트를 쓰지 않았고, 맥락은 강의에서 왔습니다. 이게 정말 도움이 되는지는 뒤에서 핵심 실험으로 보여 드리겠습니다.
 
-## 6. Live demo (2:00)
+## 6. Right form (0:35)
 
-**EN** Let me show it live. NextSlide is built for Korean lectures, so I will speak the lecture lines to it in Korean and translate as I go. Please watch four things: normal speech creates nothing, a request shows text first, the image appears through the denoising steps, and a negation is ignored. (Run the demo. See the demo script below.)
+**EN** One more design choice comes from Lecture 17. Image models make plausible pictures, but they still get text, counts and relations wrong. So the language model first decides what kind of slide this is. Only illustrations go to the image model. Equations are typeset with KaTeX, and comparisons use a fixed layout. All three of these were made by the system.
 
-**KO** 직접 보여 드리겠습니다. NextSlide는 한국어 강의용이라 강의 문장은 한국어로 말하고, 바로 영어로 옮겨 드리겠습니다. 네 가지를 봐 주세요. 일반 설명에는 아무것도 생기지 않고, 요청하면 글이 먼저 뜨고, 그림은 디노이징 단계를 거쳐 나타나며, 부정 지시는 무시됩니다. (시연 진행. 아래 시연 대본 참고)
+**KO** 설계 선택 하나는 17강에서 왔습니다. 이미지 모델은 그럴듯한 그림은 그리지만 글자, 개수, 관계는 아직 자주 틀립니다. 그래서 언어 모델이 먼저 어떤 종류의 장인지 정합니다. 설명 그림만 이미지 모델에 보내고, 수식은 KaTeX로 조판하고, 비교는 정해진 레이아웃을 씁니다. 이 세 장은 모두 시스템이 만든 것입니다.
+
+## 7. Live demo (2:00)
+
+**EN** Now let me show it live. The system is built for Korean lectures, so I'll speak the lecture lines in Korean and translate as I go. Watch for the four things on the slide. (Run the demo. See the demo script below.)
+
+**KO** 이제 직접 보여 드리겠습니다. 한국어 강의용 시스템이라 강의 문장은 한국어로 말하고 바로 영어로 옮기겠습니다. 화면의 네 가지를 봐 주세요. (시연 진행. 아래 시연 대본 참고)
 
 ### 시연 대본 (Demo script)
 
@@ -76,41 +82,61 @@
 
 문제가 생기면: "Let me switch to the recorded video." (녹화 영상으로 넘어가겠습니다.) 마이크가 안 되면 텍스트 입력의 "발화로 입력"에 같은 문장을 넣습니다.
 
-## 7. Diffusion inside the loop (0:45)
+## 8. Watching diffusion (0:40)
 
-**EN** Now the course part. I replaced the image API with open diffusion models running locally on my laptop: Stable Diffusion 1.5 with DDIM and classifier-free guidance, and SD-Turbo, which is distilled to run in one to four steps. While the model denoises, I take the predicted clean latent, x-hat-zero, from each scheduler step, map its four channels to RGB with a linear approximation, and stream it to the slide. So the audience literally sees the reverse diffusion process, and it costs almost nothing, because there is no VAE decoding per step.
+**EN** Now the part that connects to this course. In the demo, the picture came from an open diffusion model running on my laptop. A diffusion model starts from noise and removes it step by step. At every step it also predicts what the finished image will look like; that's x-hat-zero from the lecture. I send that prediction to the screen, so you can watch the picture form. Here it is at steps 4, 12 and 22 of 25. It costs almost nothing, because I turn it into colors with a simple linear map instead of running the full decoder every step.
 
-**KO** 이제 수업 내용과 연결되는 부분입니다. 이미지 API 대신 제 노트북에서 돌아가는 공개 확산 모델을 붙였습니다. DDIM과 classifier-free guidance를 쓰는 Stable Diffusion 1.5, 그리고 1~4스텝으로 돌도록 증류된 SD-Turbo입니다. 모델이 잡음을 제거하는 동안 매 스텝 스케줄러가 계산한 '예측된 깨끗한 잠재' x̂₀를 가져와, 4채널을 선형 근사로 RGB로 바꿔 슬라이드에 보냅니다. 그래서 청중은 역확산 과정을 그대로 보게 되고, 스텝마다 VAE 디코딩을 하지 않으므로 비용은 거의 없습니다.
+**KO** 이제 수업과 연결되는 부분입니다. 시연의 그림은 제 노트북에서 도는 공개 확산 모델이 그렸습니다. 확산 모델은 잡음에서 시작해 한 단계씩 잡음을 걷어 냅니다. 매 단계 모델은 완성 그림이 어떨지도 예측하는데, 수업에서 배운 x̂₀입니다. 이 예측을 화면으로 보내서 그림이 만들어지는 과정을 보여 줍니다. 25단계 중 4, 12, 22단계 모습입니다. 매 단계 디코더 전체를 돌리지 않고 간단한 선형 변환으로 색을 만들기 때문에 비용은 거의 없습니다.
 
-## 8. X2 · Guidance scale (0:50)
+## 9. Experiment 1 · Speed (0:40)
 
-**EN** In every experiment I changed one setting at a time: 12 lecture scenes, two fixed seeds, and CLIP similarity measured with a different CLIP model from the generators. Raising the guidance scale increases alignment from 21.5 to about 25.7, and then it plateaus around 5. Diversity between seeds keeps falling. This is exactly the trade-off from the lecture. One warning: when I compared samplers, DDPM at 10 steps visibly broke the shapes while DDIM kept them, but the CLIP scores did not change. CLIP measures prompt match, not image quality.
+**EN** I ran three experiments. First: is it fast enough for a live lecture? Stable Diffusion 1.5 with 25 steps takes 11 seconds per image. SD-Turbo is a distilled model that needs only a few steps; with two steps it takes 0.7 seconds, about sixteen times faster, and its pictures matched the prompts a little better. With SD-Turbo, one test run took about six seconds from my sentence to a finished slide. So that's the default.
 
-**KO** 모든 실험에서 한 번에 설정 하나만 바꿨습니다. 강의 장면 12개, 고정 시드 2개를 쓰고, 생성 모델과 다른 CLIP 모델로 유사도를 쟀습니다. 가이던스 스케일을 올리면 장면 일치도가 21.5에서 25.7 정도까지 오르다가 5 근처에서 멈춥니다. 반면 시드 간 다양성은 계속 떨어집니다. 강의에서 배운 트레이드오프 그대로입니다. 주의할 점이 하나 있습니다. 샘플러를 비교했을 때 DDPM 10스텝은 눈에 띄게 형체가 깨졌고 DDIM은 유지됐는데, CLIP 점수는 차이가 없었습니다. CLIP은 프롬프트 일치를 볼 뿐 그림 품질은 보지 못합니다.
+**KO** 실험은 세 가지입니다. 첫째, 실시간 강의에 쓸 만큼 빠른가? Stable Diffusion 1.5로 25단계를 돌리면 그림 한 장에 11초가 걸립니다. SD-Turbo는 몇 단계만 쓰도록 증류된 모델인데, 2단계로 0.7초, 약 16배 빠르고 프롬프트 일치도도 조금 더 높았습니다. SD-Turbo로 한 번 측정했을 때 제 문장부터 완성된 장까지 약 6초였습니다. 그래서 이것을 기본값으로 씁니다.
 
-## 9. X3 · Distilled model (0:40)
+## 10. Experiment 2 · Guidance (0:35)
 
-**EN** For a live lecture, speed matters most. SD-Turbo with two steps takes 0.68 seconds. SD 1.5 with 25 steps and guidance takes 11 seconds, about sixteen times slower. SD-Turbo also scored higher on CLIP, 28.2 versus 25.0. One caveat: SD-Turbo is based on SD 2.1 with a larger text encoder, so this is not the effect of distillation alone. The system default is SD-Turbo with two steps.
+**EN** Second: what does classifier-free guidance change? Same prompt, same seed; only the guidance scale changes. At 1 the picture barely forms; by 7.5 it clearly follows the prompt. Averaged over 12 scenes, prompt match rises and levels off around 5, while the variety between seeds keeps falling. That's the trade-off from the lecture. One warning about the metric: CLIP measures prompt match, not quality. When DDPM at 10 steps gave broken images, the CLIP score barely moved.
 
-**KO** 실시간 강의에서는 속도가 가장 중요합니다. SD-Turbo 2스텝은 0.68초, 가이던스를 쓰는 SD 1.5 25스텝은 11초로 약 16배 느립니다. CLIP 점수도 SD-Turbo가 28.2 대 25.0으로 높았습니다. 단, SD-Turbo는 SD 2.1 기반이고 텍스트 인코더도 더 커서 증류만의 효과라고 볼 수는 없습니다. 시스템 기본값은 SD-Turbo 2스텝입니다.
+**KO** 둘째, classifier-free guidance는 무엇을 바꾸는가? 프롬프트와 시드는 같고 가이던스 세기만 바꿨습니다. 1에서는 그림이 거의 안 만들어지고, 7.5쯤 되면 프롬프트를 분명히 따릅니다. 장면 12개 평균으로 보면 프롬프트 일치도는 오르다가 5 근처에서 멈추고, 시드 간 다양성은 계속 줄어듭니다. 수업에서 배운 트레이드오프 그대로입니다. 지표에 대한 주의 하나: CLIP은 프롬프트 일치를 볼 뿐 품질은 보지 못합니다. DDPM 10단계로 그림이 깨졌을 때도 CLIP 점수는 거의 그대로였습니다.
 
-## 10. X4 · Lecture context (1:00)
+## 11. Experiment 3 · Lecture context (1:00)
 
-**EN** This is the main experiment: does the lecture context actually help? I built 42 scenarios, 12 general ones and 30 based on this course's lectures. Condition A gets only the request. Condition B also gets the recent speech and the current slide. Everything else is fixed. Before generating anything, I wrote down the intended scene for each scenario and committed it to git. With context, the images were closer to the intended scene by 2.1 CLIP points. The 95 percent interval is 0.65 to 3.6, and the permutation test gives p equals 0.010. Without context, the planner had to ask for clarification 7 times out of 42. With context, zero times. Look at S09: without context we get a modern classroom; with context, a Joseon-era exam hall, which is what the lecturer meant. Also notice that the gain is 6.4 in the prompt text but only 2.1 in the image. The image model is the bottleneck.
+**EN** Third, the main question: does the lecture context actually help? I wrote 42 lecture scenarios, 30 of them based on this course's lecture slides. Each request runs twice. A gets only the request; B also gets the recent speech and the current slide. Everything else is the same. Before generating anything, I wrote down the scene the lecturer meant and committed it to git, so I couldn't change it later. Each bar is one scenario: how much closer B's picture is to that scene than A's. Most bars are above zero. On average B is 2.1 points closer, and a permutation test gives p = 0.010. Also, without context the system had to ask me what I meant 7 times out of 42; with context, never. One honest note: in the text prompt the gain was 6.4 points, but only 2.1 survives into the picture.
 
-**KO** 핵심 실험입니다. 강의 맥락이 정말 도움이 될까요? 시나리오 42개를 만들었습니다. 일반 시나리오 12개와 이 수업 강의자료를 바탕으로 한 30개입니다. A 조건은 요청만, B 조건은 최근 발화와 현재 장까지 받습니다. 나머지는 모두 같습니다. 생성하기 전에 시나리오마다 의도한 장면을 적어 git에 커밋해 고정했습니다. 맥락이 있으면 그림이 의도한 장면에 CLIP 점수로 2.1점 더 가까웠습니다. 95% 구간은 0.65~3.6, 순열 검정 p값은 0.010입니다. 맥락이 없으면 42개 중 7개에서 보완 질문을 해야 했고, 맥락이 있으면 0개였습니다. S09를 보면 맥락 없이는 현대식 교실이, 맥락이 있으면 강사가 말한 조선 시대 과거 시험장이 나옵니다. 그리고 프롬프트 글에서 6.4점이던 차이가 그림에서는 2.1점으로 줄어듭니다. 이미지 모델이 병목입니다.
+**KO** 셋째, 핵심 질문입니다. 강의 맥락이 정말 도움이 될까요? 강의 시나리오 42개를 만들었고, 그중 30개는 이 수업 강의자료를 바탕으로 했습니다. 요청마다 두 번 돌립니다. A는 요청만, B는 최근 발화와 현재 장까지 받습니다. 나머지는 모두 같습니다. 생성하기 전에 강사가 뜻한 장면을 적어 git에 커밋해서 나중에 바꿀 수 없게 했습니다. 막대 하나가 시나리오 하나이고, B의 그림이 A보다 그 장면에 얼마나 더 가까운지를 나타냅니다. 대부분 0보다 위에 있습니다. 평균 2.1점 더 가까웠고, 순열 검정 p값은 0.010입니다. 그리고 맥락이 없으면 42개 중 7번은 시스템이 무슨 뜻인지 되물어야 했는데, 맥락이 있으면 한 번도 없었습니다. 솔직히 말씀드리면, 프롬프트 글에서는 6.4점이던 차이가 그림에서는 2.1점만 남았습니다.
 
-## 11. What didn't work (0:45)
+## 12. What still goes wrong (0:40)
 
-**EN** Some things did not work, and I want to be clear about them. First, SD-Turbo draws fake text on paper and signs. Weak guidance with a negative prompt didn't fix it, and neither did telling the planner to describe blank surfaces: about 9 of 34 images had fake text, before and after. Second, I tried CLIP as an automatic text detector. When I checked its top six images, only one really had text, so I dropped it. Third, the experiment found a real bug: planner prompts were longer than CLIP's 77-token limit, so the style words were cut off. I fixed it with token-aware trimming. Finally, the evaluation uses CLIP only, and the scenarios and intended scenes were written by the same side, with help from an AI assistant. A blind human evaluation is the next step.
+**EN** Some things still go wrong. The fast model writes fake text on paper and signs, in about 9 of 34 images, and telling the planner to describe blank surfaces didn't change that. My only automatic judge is CLIP, and we just saw it can miss broken images. And I wrote the scenarios and intended scenes myself, with help from an AI assistant. So the next step is a blind evaluation by people.
 
-**KO** 잘 안 된 것도 분명히 말씀드리겠습니다. 첫째, SD-Turbo는 종이나 간판에 가짜 글자를 그립니다. 약한 가이던스와 negative prompt로도, 기획 LLM에 '빈 면으로 묘사하라'고 지시해도 고쳐지지 않았습니다. 전후 모두 34장 중 약 9장에 가짜 글자가 있었습니다. 둘째, CLIP으로 글자를 자동 판정하려 했지만, 상위 6장 중 실제 글자는 1장뿐이라 버렸습니다. 셋째, 실험 중에 실제 버그를 찾았습니다. 기획 LLM의 그림 묘사가 CLIP의 77토큰 한도를 넘어 화풍 문구가 잘리고 있었습니다. 토큰 수를 세서 줄이는 방식으로 고쳤습니다. 마지막으로, 평가 지표는 CLIP 하나뿐이고, 시나리오와 의도 장면은 같은 쪽에서 AI 보조 도구의 도움을 받아 썼습니다. 다음 단계는 블라인드 사람 평가입니다.
+**KO** 아직 안 되는 것도 있습니다. 빠른 모델은 종이나 간판에 가짜 글자를 그리고, 34장 중 약 9장이 그랬습니다. 기획 모델에 빈 면으로 묘사하라고 해도 줄지 않았습니다. 자동 평가는 CLIP 하나뿐인데, 방금 본 것처럼 깨진 그림을 놓칠 수 있습니다. 그리고 시나리오와 의도 장면을 제가 AI 보조 도구의 도움을 받아 직접 썼습니다. 그래서 다음 단계는 사람이 보는 블라인드 평가입니다.
 
-## 12. Takeaways (0:30)
+## 13. To sum up (0:25)
 
-**EN** To sum up. Conditioning on the lecture itself makes the images match what the lecturer meant, with no extra questions. Distilled diffusion makes the image stage fast enough for a live lecture. And the remaining bottleneck is the image model, not the language model. Thank you. I'm happy to take questions.
+**EN** To sum up. You say what the next slide should show, and it's ready in a few seconds. Using the lecture itself as context brings the picture closer to what you meant. The weak spot is still the image model. Thank you. I'm happy to take questions.
 
-**KO** 정리하겠습니다. 강의 자체를 조건으로 쓰면 추가 질문 없이도 그림이 강사가 의도한 장면에 가까워집니다. 증류된 확산 모델 덕분에 이미지 단계가 실시간 강의에 쓸 만큼 빨라졌습니다. 그리고 남은 병목은 언어 모델이 아니라 이미지 모델입니다. 감사합니다. 질문 받겠습니다.
+**KO** 정리하겠습니다. 다음 장에 보여 줄 것을 말하면 몇 초 안에 준비됩니다. 강의 자체를 맥락으로 쓰면 그림이 뜻한 장면에 더 가까워집니다. 약한 부분은 아직 이미지 모델입니다. 감사합니다. 질문 받겠습니다.
+
+## 부록 (질문 대비)
+
+### 14. Backup · Prior work
+
+**EN** (Use if asked about prior work.) Live-staging tools such as ZeroPrep interpret every utterance and show the result to the audience right away. NextSlide reacts only to explicit requests, shows the presenter first, and picks the slide form instead of always making cards.
+
+**KO** (이전 연구를 물으면 사용) ZeroPrep 같은 실시간 발표 도구는 모든 발화를 해석해 바로 청중에게 보여 줍니다. NextSlide는 명시적인 요청에만 반응하고, 발표자에게 먼저 보여 주며, 항상 카드를 만드는 대신 슬라이드 형태를 고릅니다.
+
+### 15. Backup · System numbers
+
+**EN** (Use if asked about the detector, tests or speed.) The detector got 56 of 60 test sentences right: no missed requests, one slide made when it shouldn't have been, and three unnecessary 'which topic?' questions. There are 112 automated backend tests with mock providers. End to end, one run took 6.2 seconds with local SD-Turbo and 20 seconds with the gpt-image-2 API.
+
+**KO** (감지기·테스트·속도를 물으면 사용) 감지기는 평가 문장 60개 중 56개를 맞혔습니다. 놓친 요청 0건, 만들면 안 되는데 만든 경우 1건, 불필요하게 주제를 되물은 경우 3건입니다. 모의 제공자를 쓰는 자동 백엔드 테스트가 112개 있습니다. 전체 흐름은 로컬 SD-Turbo로 한 번 6.2초, gpt-image-2 API로 20초였습니다.
+
+### 16. Backup · How it was measured
+
+**EN** (Use if asked about the method.) Scores are cosine similarity from CLIP ViT-B/32, a different model from the generators' text encoders, times 100. X1 to X3 used 12 lecture scenes and 2 fixed seeds, changing one setting at a time, with bootstrap confidence intervals. X4 compared 28 paired scenarios with a permutation test. SD-Turbo is based on SD 2.1, so its gain is not distillation alone. The experiments also found a real bug: prompts longer than CLIP's 77 tokens lost their style words, now fixed.
+
+**KO** (실험 방법을 물으면 사용) 점수는 생성 모델의 텍스트 인코더와 다른 CLIP ViT-B/32의 코사인 유사도에 100을 곱한 값입니다. X1~X3은 강의 장면 12개와 고정 시드 2개로 한 번에 설정 하나만 바꿨고, 부트스트랩 신뢰구간을 냈습니다. X4는 짝지은 시나리오 28개를 순열 검정으로 비교했습니다. SD-Turbo는 SD 2.1 기반이라 증류만의 효과는 아닙니다. 실험 중 실제 버그도 찾았습니다. CLIP의 77토큰을 넘는 프롬프트에서 화풍 문구가 잘리던 문제이고, 고쳤습니다.
 
 ## 예상 질문과 답변 (Q&A)
 
