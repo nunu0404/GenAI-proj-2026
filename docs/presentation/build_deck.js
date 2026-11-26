@@ -16,17 +16,31 @@ const A = (f) => path.join(HERE, "assets", f);
 const OUT = path.join(HERE, "NextSlide_final.pptx");
 const APPLY_THEME = process.env.APPLY_THEME_JS; // pptx 스킬의 scripts/apply_theme.js 경로 (선택)
 
+// 디자인: frontend-slides 스타일 탐색에서 고른 "실시간 자막" 시안(어두운 바탕, 세리프 제목, 호박색 포인트).
+// 글꼴(OFL): Instrument Serif(제목), Instrument Sans(본문), IBM Plex Mono(라벨). docs/presentation/fonts/ 에 있음.
+// 어두운 덱이라 dk1 을 밝은 글자색, lt1 을 바탕색으로 둔다(기본 clrMap: tx1=dk1, bg1=lt1).
 const THEME = {
-  name: "NextSlide",
-  headFontFace: "Cambria",
-  bodyFontFace: "Calibri",
+  name: "NextSlide Live Caption",
+  headFontFace: "Instrument Serif",
+  bodyFontFace: "Instrument Sans",
   colors: {
-    dk1: "1B2B3A", lt1: "FFFFFF", dk2: "1F3A5F", lt2: "F1F5F7",
-    accent1: "2A9D8F", accent2: "E9B949", accent3: "E76F51", accent4: "8D99AE",
-    accent5: "264653", accent6: "CFE8E4", hlink: "2A9D8F", folHlink: "1F3A5F",
+    dk1: "F1EDE4", // 글자(따뜻한 흰색)
+    lt1: "0E1013", // 바탕
+    dk2: "8E8A80", // 보조 글자
+    lt2: "17191D", // 카드 면
+    accent1: "FFB547", // 호박색 신호
+    accent2: "8FA6C1", // 두 번째 데이터 계열(차가운 회청색)
+    accent3: "2C2F34", // 가는 선
+    accent4: "5E5B55", // 흐린 요소
+    accent5: "1E2126", // 한 단계 밝은 면
+    accent6: "C9C3B6",
+    hlink: "FFB547", folHlink: "8FA6C1",
   },
 };
 const H = THEME.colors; // hex-only 옵션(차트 격자선, 그림자)용
+const MONO = "IBM Plex Mono";
+const SERIF = "+mj-lt"; // 테마 제목 글꼴
+const KO = "Apple SD Gothic Neo"; // 한국어 라벨(Instrument 글꼴에는 한글이 없음)
 
 // ───────────────────────── 대본 (영어 / 한국어) ─────────────────────────
 const SCRIPT = [
@@ -166,13 +180,49 @@ const QA = [
   },
 ];
 
-// ───────────────────────── 아이콘 ─────────────────────────
+// ───────────────────────── 아이콘·배경·파형 그림 ─────────────────────────
 async function icon(name, color, size = 256) {
   const Comp = fa[name];
   if (!Comp) throw new Error(`unknown icon ${name}`);
   const svg = ReactDOMServer.renderToStaticMarkup(React.createElement(Comp, { color: "#" + color, size: String(size) }));
   const buf = await sharp(Buffer.from(svg)).resize(size, size).png().toBuffer();
   return "image/png;base64," + buf.toString("base64");
+}
+
+// 어두운 바탕 + 은은한 빛 번짐 + 고운 입자. 결정적 난수라 다시 만들어도 같은 그림이 나온다.
+async function makeBackground(file, glows) {
+  if (fs.existsSync(file)) return;
+  const w = 1920, h = 1080, buf = Buffer.alloc(w * h * 3);
+  let seed = 20261126;
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let c = [14, 16, 19];
+      for (const g of glows) {
+        const dx = (x - g.x * w) / (g.rx * w), dy = (y - g.y * h) / (g.ry * h);
+        let t = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy));
+        t = t * t * g.a;
+        c = c.map((v, k) => v + (g.col[k] - v) * t);
+      }
+      const n = (rnd() - 0.5) * 6;
+      const i = (y * w + x) * 3;
+      for (let k = 0; k < 3; k++) buf[i + k] = Math.max(0, Math.min(255, Math.round(c[k] + n)));
+    }
+  }
+  await sharp(buf, { raw: { width: w, height: h, channels: 3 } }).jpeg({ quality: 88 }).toFile(file);
+}
+
+// 음성 파형(장식). 막대 18개짜리 그림 한 장.
+const WAVE_H = [0.3, 0.62, 0.44, 0.95, 0.5, 0.8, 0.24, 0.9, 0.4, 0.74, 0.32, 0.56, 0.92, 0.26, 0.78, 0.46, 0.68, 0.34];
+async function waveform(color) {
+  const bw = 10, gap = 10, H0 = 100, W0 = WAVE_H.length * (bw + gap) - gap;
+  const bars = WAVE_H.map((v, i) => {
+    const bh = Math.round(v * H0);
+    return `<rect x="${i * (bw + gap)}" y="${(H0 - bh) / 2}" width="${bw}" height="${bh}" rx="${bw / 2}" fill="#${color}" fill-opacity="0.8"/>`;
+  }).join("");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W0}" height="${H0}" viewBox="0 0 ${W0} ${H0}">${bars}</svg>`;
+  const buf = await sharp(Buffer.from(svg), { density: 288 }).png().toBuffer();
+  return { data: "image/png;base64," + buf.toString("base64"), ratio: W0 / H0 };
 }
 
 function notesFor(i) {
@@ -186,60 +236,84 @@ function notesFor(i) {
 
 // ───────────────────────── 덱 ─────────────────────────
 async function build() {
+  const BG_CONTENT = A("bg_content.jpg"), BG_TITLE = A("bg_title.jpg");
+  await makeBackground(BG_CONTENT, [
+    { x: 0.86, y: 0.02, rx: 0.55, ry: 0.75, a: 0.10, col: [255, 181, 71] },
+    { x: 0.04, y: 1.0, rx: 0.5, ry: 0.6, a: 0.10, col: [120, 140, 170] },
+  ]);
+  await makeBackground(BG_TITLE, [
+    { x: 0.76, y: 0.28, rx: 0.62, ry: 0.85, a: 0.15, col: [255, 181, 71] },
+    { x: 0.06, y: 1.0, rx: 0.55, ry: 0.65, a: 0.13, col: [120, 140, 170] },
+  ]);
+  const WAVE = await waveform(H.dk1);
+
   const pres = new pptxgen();
   pres.layout = "LAYOUT_WIDE"; // 13.333 x 7.5
   pres.title = "NextSlide: Speak the Next Slide";
   pres.subject = "Generative AI final project";
   pres.theme = { headFontFace: THEME.headFontFace, bodyFontFace: THEME.bodyFontFace };
   const C = pres.SchemeColor;
-  const W = 13.333, M = 0.6;
+  const W = 13.333, M = 0.75, CW = W - 2 * M;
 
-  // 레이아웃
+  // 레이아웃: 표지 / 본문 / 구간(시연·정리)
+  const slideNum = () => ({ x: W - M - 1.0, y: 6.84, w: 1.0, h: 0.3, fontFace: MONO, fontSize: 10, color: C.text2, align: "right" });
   pres.defineSlideMaster({
-    title: "DARK_TITLE",
-    background: { color: H.dk2 },
+    title: "TITLE",
+    background: { path: BG_TITLE },
     objects: [
-      { placeholder: { options: { name: "title", type: "title", x: M, y: 2.1, w: 6.6, h: 1.4, fontSize: 54, bold: true, color: C.background1, valign: "bottom", align: "left", margin: 0 }, text: "" } },
-      { placeholder: { options: { name: "body", type: "body", x: M, y: 3.65, w: 6.4, h: 1.3, fontSize: 22, color: "CFE8E4", valign: "top", margin: 0 }, text: "" } },
+      { placeholder: { options: { name: "title", type: "title", x: M, y: 1.15, w: 6.6, h: 1.95, fontSize: 112, color: C.text1, valign: "bottom", align: "left", margin: 0 }, text: "" } },
+      { placeholder: { options: { name: "body", type: "body", x: M, y: 3.4, w: 5.9, h: 1.5, fontSize: 30, color: C.text1, valign: "top", margin: 0 }, text: "" } },
     ],
   });
   pres.defineSlideMaster({
     title: "CONTENT",
-    background: { color: H.lt1 },
-    margin: [0.5, 0.6, 0.6, 0.6],
+    background: { path: BG_CONTENT },
+    margin: [0.5, M, 0.6, M],
     objects: [
-      { placeholder: { options: { name: "title", type: "title", x: M, y: 0.35, w: W - 2 * M, h: 0.85, fontSize: 32, bold: true, color: C.text2, valign: "middle", margin: 0 }, text: "" } },
-      { text: { text: "NextSlide · Generative AI final project", options: { x: M, y: 7.0, w: 6, h: 0.3, fontSize: 10, color: "8D99AE", margin: 0 } } },
+      { placeholder: { options: { name: "title", type: "title", x: M, y: 0.78, w: CW, h: 0.95, fontSize: 40, color: C.text1, valign: "middle", align: "left", margin: 0 }, text: "" } },
     ],
-    slideNumber: { x: W - M - 0.6, y: 7.0, w: 0.6, h: 0.3, fontSize: 10, color: "8D99AE", align: "right" },
+    slideNumber: slideNum(),
   });
   pres.defineSlideMaster({
-    title: "DARK_SECTION",
-    background: { color: H.dk2 },
+    title: "SECTION",
+    background: { path: BG_TITLE },
     objects: [
-      { placeholder: { options: { name: "title", type: "title", x: M, y: 0.6, w: W - 2 * M, h: 1.0, fontSize: 36, bold: true, color: C.background1, valign: "middle", margin: 0 }, text: "" } },
+      { placeholder: { options: { name: "title", type: "title", x: M, y: 0.8, w: CW, h: 1.2, fontSize: 64, color: C.text1, valign: "middle", align: "left", margin: 0 }, text: "" } },
     ],
-    slideNumber: { x: W - M - 0.6, y: 7.0, w: 0.6, h: 0.3, fontSize: 10, color: "8D99AE", align: "right" },
+    slideNumber: slideNum(),
   });
 
-  const shadow = () => ({ type: "outer", color: "1B2B3A", blur: 8, offset: 2, angle: 90, opacity: 0.18 });
-  const card = (s, x, y, w, h, fill, name) =>
-    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y, w, h, rectRadius: 0.12, fill: { color: fill }, line: { color: fill }, objectName: name });
-  const iconDot = async (s, name, x, y, d, bg, fg, oname) => {
-    s.addShape(pres.shapes.OVAL, { x, y, w: d, h: d, fill: { color: bg }, line: { color: bg }, objectName: oname + " circle" });
-    const pad = d * 0.24;
-    s.addImage({ data: await icon(name, fg), x: x + pad, y: y + pad, w: d - 2 * pad, h: d - 2 * pad, altText: oname, objectName: oname });
+  // 공통 요소
+  const T = (s, t, o) => s.addText(t, { isTextBox: true, margin: 0, fontSize: 15, color: C.text1, valign: "top", ...o });
+  const mono = (s, t, o) => T(s, t, { fontFace: MONO, fontSize: 10.5, charSpacing: 2, color: C.accent1, ...o });
+  const kicker = (s, t) => mono(s, t.toUpperCase(), { x: M, y: 0.46, w: 9, h: 0.3, objectName: "Section label" });
+  const dot = (s, x, y, d = 0.1) =>
+    s.addShape(pres.shapes.OVAL, { x, y, w: d, h: d, fill: { color: C.accent1 }, line: { type: "none" }, objectName: "Live dot" });
+  const box = (s, x, y, w, h, name, fill = C.background2) =>
+    s.addShape(pres.shapes.RECTANGLE, { x, y, w, h, fill: { color: fill }, line: { type: "none" }, objectName: name });
+  const frame = (s, x, y, w, h, name) =>
+    s.addShape(pres.shapes.RECTANGLE, { x, y, w, h, fill: { type: "none" }, line: { color: C.accent3, width: 0.75 }, objectName: name });
+  const img = (s, file, x, y, w, h, alt, name) => {
+    s.addImage({ path: A(file), x, y, w, h, altText: alt, objectName: name });
+    frame(s, x, y, w, h, name + " frame");
   };
-  const text = (s, t, o) => s.addText(t, { isTextBox: true, margin: 0, fontSize: 16, color: C.text1, valign: "top", ...o });
-  const caption = (s, t, o) => text(s, t, { fontSize: 12, color: "5B6B7B", ...o });
-  const chartBase = {
-    showTitle: true, titleFontSize: 14, titleColor: "1B2B3A", titleFontFace: "+mn-lt",
-    catAxisLabelColor: "5B6B7B", valAxisLabelColor: "5B6B7B", catAxisLabelFontSize: 12, valAxisLabelFontSize: 11,
+  const wave = (s, x, cy, h) => s.addImage({ data: WAVE.data, x, y: cy - h / 2, w: h * WAVE.ratio, h, altText: "Decorative speech waveform", objectName: "Waveform" });
+  // 하단 자막 줄: 측정 방법·출처·주의를 실시간 자막처럼 한 줄로 둔다.
+  const capline = (s, label, text, fs = 12) => {
+    dot(s, M, 6.95);
+    mono(s, label.toUpperCase(), { x: M + 0.24, y: 6.86, w: 1.0, h: 0.28, fontSize: 9.5, valign: "middle", objectName: "Caption label" });
+    T(s, text, { x: M + 1.3, y: 6.68, w: CW - 1.3 - 1.1, h: 0.64, fontSize: fs, color: C.text2, valign: "middle", objectName: "Caption line" });
+  };
+  const chartBase = () => ({
+    showTitle: true, titleFontSize: 14, titleColor: H.dk1, titleFontFace: "+mn-lt",
+    catAxisLabelColor: H.dk2, valAxisLabelColor: H.dk2, catAxisLabelFontSize: 12, valAxisLabelFontSize: 11,
     catAxisLabelFontFace: "+mn-lt", valAxisLabelFontFace: "+mn-lt",
-    valGridLine: { color: "E3E8EC", size: 0.75 }, catGridLine: { style: "none" },
-    showLegend: false, showValue: true, dataLabelColor: "1B2B3A", dataLabelFontSize: 11, dataLabelFontFace: "+mn-lt",
-    catAxisLineShow: true, catAxisLineColor: "BFC8D0", valAxisLineShow: false,
-  };
+    valGridLine: { color: H.accent3, size: 0.75 }, catGridLine: { style: "none" },
+    showLegend: false, showValue: true, dataLabelColor: H.dk1, dataLabelFontSize: 11, dataLabelFontFace: "+mn-lt",
+    catAxisLineShow: true, catAxisLineColor: H.accent4, valAxisLineShow: false,
+    plotArea: { fill: { color: H.lt1, transparency: 100 } },
+    chartArea: { fill: { color: H.lt1, transparency: 100 } },
+  });
 
   let n = 0;
   const S = (layout, section) => {
@@ -248,312 +322,350 @@ async function build() {
     n += 1;
     return s;
   };
+  const title = (s, parts) => s.addText(parts.map((p, i) => (i % 2 ? { text: p, options: { italic: true, color: C.accent1 } } : { text: p })).filter((r) => r.text), { placeholder: "title" });
 
-  // 1. Title
+  // 1. 표지
   pres.addSection({ title: "Opening" });
   {
-    const s = S("DARK_TITLE", "Opening");
-    s.addText("NextSlide", { placeholder: "title" });
-    s.addText("Speak the next slide: the lecture itself becomes the condition for generation", { placeholder: "body" });
-    text(s, "Generative AI · Final Project · Fall 2026", { x: M, y: 5.6, w: 6.4, h: 0.4, fontSize: 14, color: "A9B8C9" });
-    s.addImage({ path: A("real_v2_illustration.jpg"), x: 7.55, y: 1.75, w: 5.2, h: 2.925, shadow: shadow(), altText: "A slide generated by NextSlide: a hiker overshooting the valley as an analogy for a too-large learning rate", objectName: "Generated slide example" });
-    caption(s, "Made by NextSlide (real APIs) from a Korean request, translated: “explain a too-large learning rate with a hiker coming down a mountain.”", { x: 7.55, y: 4.8, w: 5.2, h: 0.7, color: "A9B8C9", fontSize: 12, italic: true });
+    const s = S("TITLE", "Opening");
+    mono(s, "GENERATIVE AI  ·  FINAL PROJECT  ·  FALL 2026", { x: M, y: 0.82, w: 6.5, h: 0.3 });
+    title(s, ["Next", "Slide"]);
+    s.addText([
+      { text: "Speak the next slide.", options: { breakLine: true } },
+      { text: "The lecture itself becomes the condition for generation.", options: { fontSize: 20, color: C.text2, paraSpaceBefore: 10 } },
+    ], { placeholder: "body" });
+    const ix = 7.25, iw = W - M - ix, ih = iw * 9 / 16;
+    mono(s, "PRESENTER PREVIEW", { x: ix, y: 0.98, w: 3, h: 0.28, color: C.text2 });
+    mono(s, "FINAL IMAGE", { x: ix + iw - 2.5, y: 0.98, w: 2.5, h: 0.28, align: "right" });
+    img(s, "real_v2_illustration.jpg", ix, 1.32, iw, ih, "A slide generated by NextSlide: a hiker overshooting the valley as an analogy for a too-large learning rate", "Generated slide example");
+    T(s, "Made by NextSlide with real APIs.", { x: ix, y: 1.32 + ih + 0.14, w: iw, h: 0.3, fontSize: 12, color: C.text2 });
+    // 실시간 자막 줄
+    dot(s, M, 5.96, 0.12);
+    mono(s, "LIVE", { x: M + 0.24, y: 5.87, w: 0.7, h: 0.3, fontSize: 11 });
+    wave(s, M + 1.0, 6.02, 0.36);
+    T(s, "“Explain a too-large learning rate with a hiker coming down a mountain.”", { x: 3.2, y: 5.72, w: W - M - 3.2, h: 0.45, fontSize: 19 });
+    mono(s, "REQUEST  ·  TRANSLATED FROM KOREAN", { x: 3.2, y: 6.22, w: 6, h: 0.28, fontSize: 9.5, color: C.text2 });
   }
 
-  // 2. Problem
+  // 2. 문제
   pres.addSection({ title: "Idea" });
   {
     const s = S("CONTENT", "Idea");
-    s.addText("Lectures improvise, slides don't", { placeholder: "title" });
-    // quote card
-    card(s, M, 1.6, 5.6, 3.4, "F1F5F7", "Quote card");
-    await iconDot(s, "FaMicrophone", M + 0.4, 1.95, 0.7, H.accent1, "FFFFFF", "Microphone icon");
-    text(s, "“In the next slide, I'll explain overfitting with a student who memorized the exam answers.”", { x: M + 0.4, y: 2.85, w: 4.8, h: 1.5, fontSize: 22, italic: true, color: C.text2, fontFace: "Cambria" });
-    caption(s, "An analogy invented mid-lecture: no slide exists for it", { x: M + 0.4, y: 4.4, w: 4.8, h: 0.4 });
+    kicker(s, "The problem");
+    title(s, ["Lectures improvise, ", "slides don't"]);
+    dot(s, M, 2.06);
+    mono(s, "LIVE  ·  MID-LECTURE", { x: M + 0.24, y: 1.97, w: 2.6, h: 0.28 });
+    wave(s, M + 2.75, 2.11, 0.26);
+    T(s, "“In the next slide, I'll explain overfitting with a student who memorized the exam answers.”",
+      { x: M, y: 2.45, w: 5.7, h: 1.9, fontFace: SERIF, italic: true, fontSize: 32 });
+    T(s, "An analogy invented mid-lecture: no slide exists for it.", { x: M, y: 4.4, w: 5.7, h: 0.35, fontSize: 15, color: C.text2 });
     const rows = [
-      ["FaLightbulb", "Analogies appear on the spot", "The best explanations are often improvised."],
-      ["FaCircleQuestion", "Students ask unplanned questions", "The deck was fixed before class."],
-      ["FaPause", "Making a slide breaks the flow", "Stop, open an editor, lose the audience."],
+      ["Analogies appear on the spot", "The best explanations are often improvised."],
+      ["Students ask unplanned questions", "The deck was fixed before class."],
+      ["Making a slide breaks the flow", "Stop, open an editor, lose the audience."],
     ];
-    for (let i = 0; i < rows.length; i++) {
-      const y = 1.6 + i * 1.15;
-      await iconDot(s, rows[i][0], 6.9, y, 0.6, "CFE8E4", H.dk2, rows[i][1] + " icon");
-      text(s, rows[i][1], { x: 7.7, y: y - 0.02, w: 5.0, h: 0.4, fontSize: 18, bold: true, color: C.text2 });
-      text(s, rows[i][2], { x: 7.7, y: y + 0.4, w: 5.0, h: 0.4, fontSize: 15, color: "44546A" });
-    }
-    card(s, M, 5.45, W - 2 * M, 0.95, "1F3A5F", "Goal banner");
-    text(s, [
-      { text: "Goal  ", options: { bold: true, color: "E9B949" } },
-      { text: "The lecturer keeps talking. The next slide gets ready.", options: { color: "FFFFFF" } },
-    ], { x: M + 0.4, y: 5.45, w: W - 2 * M - 0.8, h: 0.95, fontSize: 20, valign: "middle" });
+    rows.forEach((r, i) => {
+      const y = 2.0 + i * 1.05;
+      mono(s, "0" + (i + 1), { x: 7.15, y: y + 0.05, w: 0.6, h: 0.3, fontSize: 12 });
+      T(s, r[0], { x: 7.8, y, w: 4.8, h: 0.4, fontSize: 19, bold: true });
+      T(s, r[1], { x: 7.8, y: y + 0.42, w: 4.8, h: 0.35, fontSize: 15, color: C.text2 });
+    });
+    mono(s, "GOAL", { x: M, y: 5.3, w: 2, h: 0.28 });
+    T(s, [{ text: "The lecturer keeps talking. The next slide gets " }, { text: "ready.", options: { italic: true, color: C.accent1 } }],
+      { x: M, y: 5.62, w: CW, h: 0.75, fontFace: SERIF, fontSize: 34 });
   }
 
-  // 3. What's new
+  // 3. 새로운 점
   {
     const s = S("CONTENT", "Idea");
-    s.addText("The condition is the lecture itself", { placeholder: "title" });
+    kicker(s, "What's new");
+    title(s, ["The condition is ", "the lecture itself"]);
     const chips = [
       ["Request", "detected from speech"],
       ["Recent speech", "last 90 s, frozen at request"],
       ["Current slide", "title + key points"],
     ];
-    for (let i = 0; i < chips.length; i++) {
-      const y = 1.75 + i * 1.15;
-      card(s, M, y, 3.3, 0.9, i === 0 ? "2A9D8F" : "CFE8E4", chips[i][0] + " chip");
-      text(s, [
-        { text: chips[i][0], options: { bold: true, breakLine: true } },
-        { text: chips[i][1], options: { fontSize: 12 } },
-      ], { x: M + 0.2, y, w: 3.0, h: 0.9, fontSize: 17, color: i === 0 ? "FFFFFF" : "1F3A5F", valign: "middle" });
-    }
-    s.addShape(pres.shapes.RIGHT_ARROW, { x: 4.05, y: 2.95, w: 0.5, h: 0.5, fill: { color: "8D99AE" }, line: { color: "8D99AE" }, objectName: "Arrow to planner" });
-    card(s, 4.65, 2.45, 1.75, 1.6, "1F3A5F", "Planner box");
-    text(s, [{ text: "Slide plan", options: { bold: true, breakLine: true } }, { text: "form + text + image prompt", options: { fontSize: 12 } }],
-      { x: 4.75, y: 2.45, w: 1.55, h: 1.6, fontSize: 16, color: "FFFFFF", valign: "middle", align: "center" });
-    caption(s, "No one types a prompt. “Draw that hiker analogy” works because the condition carries the lecture.", { x: M, y: 5.35, w: 5.8, h: 0.7, fontSize: 15, color: "44546A", italic: true });
-
-    // comparison table
-    const hdr = (t) => ({ text: t, options: { bold: true, color: "FFFFFF", fill: { color: H.dk2 } } });
-    const rowsT = [
-      [hdr(""), hdr("Live-staging tools (e.g. ZeroPrep)"), hdr("NextSlide")],
-      [{ text: "Trigger", options: { bold: true } }, "A realtime model interprets every utterance", { text: "Only explicit requests (rule detector)", options: { bold: true, color: H.accent5 } }],
-      [{ text: "Who sees it first", options: { bold: true } }, "The audience, immediately", { text: "The presenter; I advance when ready", options: { bold: true, color: H.accent5 } }],
-      [{ text: "Slide forms", options: { bold: true } }, "Cards, metrics, diagrams", { text: "Illustration, equation, comparison, table, chart", options: { bold: true, color: H.accent5 } }],
-    ];
-    s.addTable(rowsT, {
-      x: 6.85, y: 1.75, w: 5.9, colW: [1.35, 2.2, 2.35], fontSize: 15, fontFace: "Calibri", color: "1B2B3A",
-      border: { type: "solid", pt: 0.75, color: "D5DDE3" }, valign: "middle", rowH: [0.65, 1.1, 1.1, 1.1], margin: 0.08,
-      fill: { color: "FFFFFF" }, objectName: "Prior work comparison",
+    chips.forEach((c, i) => {
+      const y = 2.0 + i * 1.0, first = i === 0;
+      box(s, M, y, 3.35, 0.82, c[0] + " chip", first ? C.accent1 : C.background2);
+      T(s, [{ text: c[0], options: { bold: true, breakLine: true } }, { text: c[1], options: { fontSize: 13, color: first ? C.background1 : C.text2 } }],
+        { x: M + 0.22, y, w: 3.0, h: 0.82, fontSize: 17, valign: "middle", color: first ? C.background1 : C.text1 });
     });
-    caption(s, "ZeroPrep: github.com/ramsrigouthamg/zeroprep (README and app code read 2026-11-05)", { x: 6.85, y: 5.85, w: 5.9, h: 0.4, fontSize: 10 });
+    s.addShape(pres.shapes.RIGHT_ARROW, { x: 4.3, y: 3.21, w: 0.42, h: 0.4, fill: { color: C.accent4 }, line: { type: "none" }, objectName: "Arrow to planner" });
+    s.addShape(pres.shapes.RECTANGLE, { x: 4.9, y: 2.66, w: 1.85, h: 1.5, fill: { color: C.accent5 }, line: { color: C.accent1, width: 1 }, objectName: "Planner box" });
+    T(s, [{ text: "Slide plan", options: { bold: true, breakLine: true } }, { text: "form + text + image prompt", options: { fontSize: 13, color: C.text2 } }],
+      { x: 5.0, y: 2.66, w: 1.65, h: 1.5, fontSize: 17, valign: "middle", align: "center" });
+    T(s, "No one types a prompt. “Draw that hiker analogy” works because the condition carries the lecture.",
+      { x: M, y: 5.2, w: 6.0, h: 0.8, fontSize: 16, italic: true, color: C.text2 });
+
+    const hdr = (t, hi) => ({ text: t, options: { fontFace: MONO, fontSize: 10.5, charSpacing: 1, color: hi ? C.accent1 : C.text2, fill: { color: C.background2 } } });
+    const hi = (t) => ({ text: t, options: { bold: true, color: C.accent1 } });
+    const lab = (t) => ({ text: t, options: { bold: true } });
+    s.addTable([
+      [hdr(""), hdr("LIVE-STAGING TOOLS (ZEROPREP)"), hdr("NEXTSLIDE", true)],
+      [lab("Trigger"), "A realtime model interprets every utterance", hi("Only explicit requests (rule detector)")],
+      [lab("Who sees it first"), "The audience, immediately", hi("The presenter; I advance when ready")],
+      [lab("Slide forms"), "Cards, metrics, diagrams", hi("Illustration, equation, comparison, table, chart")],
+    ], {
+      x: 6.95, y: 2.0, w: W - M - 6.95, colW: [1.25, 2.0, W - M - 6.95 - 3.25], fontSize: 14, color: C.text1,
+      border: { type: "solid", pt: 0.75, color: H.accent3 }, valign: "middle", rowH: [0.55, 1.05, 1.05, 1.05], margin: 0.1,
+      objectName: "Prior work comparison",
+    });
+    capline(s, "Source", "ZeroPrep: github.com/ramsrigouthamg/zeroprep (README and app code read 2026-11-05)");
   }
 
-  // 4. Pipeline
+  // 4. 파이프라인
   pres.addSection({ title: "System" });
   {
     const s = S("CONTENT", "System");
-    s.addText("One request, end to end", { placeholder: "title" });
+    kicker(s, "System");
+    title(s, ["One request, ", "end to end"]);
     const steps = [
-      ["FaMicrophone", "Mic", "Browser streams 16\u00A0kHz audio"],
+      ["FaMicrophone", "Mic", "Browser streams 16 kHz audio"],
       ["FaWaveSquare", "Live STT", "Gemini live transcription"],
       ["FaFilter", "Detector", "Rules: request vs. negation, quote"],
       ["FaLock", "Freeze context", "Request + 90 s + current slide"],
       ["FaBrain", "Planner LLM", "Strict JSON, picks the form"],
       ["FaDisplay", "Text → image", "Presenter preview first, then audience"],
     ];
-    const bw = 1.8, gap = 0.26, y = 1.75;
+    const gap = 0.26, bw = (CW - 5 * gap) / 6, y = 1.98, bh = 2.55;
     for (let i = 0; i < steps.length; i++) {
-      const x = M + i * (bw + gap);
-      card(s, x, y, bw, 2.55, i === 5 ? "1F3A5F" : "F1F5F7", steps[i][1] + " box");
-      await iconDot(s, steps[i][0], x + (bw - 0.7) / 2, y + 0.25, 0.7, i === 5 ? "2A9D8F" : "1F3A5F", "FFFFFF", steps[i][1] + " icon");
-      text(s, steps[i][1], { x: x + 0.12, y: y + 1.1, w: bw - 0.24, h: 0.5, fontSize: 16, bold: true, align: "center", color: i === 5 ? "FFFFFF" : "1F3A5F" });
-      text(s, steps[i][2], { x: x + 0.12, y: y + 1.6, w: bw - 0.24, h: 0.8, fontSize: 13, align: "center", color: i === 5 ? "CFE8E4" : "44546A" });
-      if (i < steps.length - 1)
-        s.addShape(pres.shapes.LINE, { x: x + bw + 0.03, y: y + 0.6, w: gap - 0.06, h: 0, line: { color: "8D99AE", width: 1.5, endArrowType: "triangle" }, objectName: "Flow arrow " + (i + 1) });
+      const x = M + i * (bw + gap), last = i === steps.length - 1;
+      const ink = last ? C.background1 : C.text1, sub = last ? C.background1 : C.text2;
+      box(s, x, y, bw, bh, steps[i][1] + " box", last ? C.accent1 : C.background2);
+      mono(s, "0" + (i + 1), { x: x + 0.2, y: y + 0.2, w: 0.6, h: 0.28, color: last ? C.background1 : C.accent1 });
+      s.addImage({ data: await icon(steps[i][0], last ? H.lt1 : H.accent1), x: x + 0.2, y: y + 0.62, w: 0.42, h: 0.42, altText: steps[i][1] + " icon", objectName: steps[i][1] + " icon" });
+      T(s, steps[i][1], { x: x + 0.18, y: y + 1.1, w: bw - 0.28, h: 0.62, fontSize: 16, bold: true, color: ink, valign: "bottom" });
+      T(s, steps[i][2], { x: x + 0.18, y: y + 1.8, w: bw - 0.28, h: 0.68, fontSize: 12.5, color: sub });
+      if (!last)
+        s.addShape(pres.shapes.LINE, { x: x + bw + 0.04, y: y + bh / 2, w: gap - 0.08, h: 0, line: { color: C.accent4, width: 1.25, endArrowType: "triangle" }, objectName: "Flow arrow " + (i + 1) });
     }
     const stats = [
       ["56 / 60", "utterances classified correctly", "test set written by the developer"],
       ["112", "automated backend tests", "mock providers, no API calls"],
       ["6.2 s", "request → finished slide", "local SD-Turbo, single run (n = 1)"],
     ];
-    const sw = (W - 2 * M - 2 * 0.3) / 3;
-    for (let i = 0; i < 3; i++) {
-      const x = M + i * (sw + 0.3);
-      text(s, stats[i][0], { x, y: 4.75, w: sw, h: 0.85, fontSize: 44, bold: true, color: i === 2 ? H.accent1 : C.text2, fontFace: "Cambria" });
-      text(s, stats[i][1], { x, y: 5.6, w: sw, h: 0.4, fontSize: 16, bold: true, color: C.text1 });
-      caption(s, stats[i][2], { x, y: 6.0, w: sw, h: 0.35 });
-    }
+    const sw = (CW - 2 * 0.4) / 3;
+    stats.forEach((st, i) => {
+      const x = M + i * (sw + 0.4);
+      T(s, st[0], { x, y: 4.82, w: sw, h: 0.9, fontFace: SERIF, fontSize: 58, color: i === 2 ? C.accent1 : C.text1, valign: "bottom" });
+      T(s, st[1], { x, y: 5.8, w: sw, h: 0.35, fontSize: 16, bold: true });
+      T(s, st[2], { x, y: 6.17, w: sw, h: 0.3, fontSize: 12.5, color: C.text2 });
+    });
   }
 
-  // 5. Right form
+  // 5. 형태 고르기
   {
     const s = S("CONTENT", "System");
-    s.addText("Image models draw pictures, not text", { placeholder: "title" });
-    text(s, [
-      { text: "Lecture 17: a plausible image can still miss the prompt (counts, relations, text). ", options: {} },
+    kicker(s, "System  ·  output forms");
+    title(s, ["Image models draw ", "pictures", ", not text"]);
+    T(s, [
+      { text: "Lecture 17: a plausible image can still miss the prompt (counts, relations, text). ", options: { color: C.text2 } },
       { text: "So the planner picks a form, and only illustrations go to the image model.", options: { bold: true } },
-    ], { x: M, y: 1.35, w: W - 2 * M, h: 0.7, fontSize: 17, color: "44546A" });
+    ], { x: M, y: 1.85, w: CW, h: 0.65, fontSize: 16 });
     const shots = [
       ["real_v2_illustration.jpg", "Illustration", "image model, no text inside"],
       ["real_v2_equation_gd.jpg", "Equation", "rendered with KaTeX"],
       ["real_v4_comparison.jpg", "Comparison", "fixed two-column layout"],
     ];
-    const iw = (W - 2 * M - 2 * 0.35) / 3, ih = iw * 9 / 16;
-    for (let i = 0; i < 3; i++) {
-      const x = M + i * (iw + 0.35);
-      s.addImage({ path: A(shots[i][0]), x, y: 2.35, w: iw, h: ih, shadow: shadow(), altText: shots[i][1] + " slide generated by NextSlide", objectName: shots[i][1] + " screenshot" });
-      text(s, shots[i][1], { x, y: 2.35 + ih + 0.2, w: iw, h: 0.4, fontSize: 18, bold: true, color: C.text2 });
-      caption(s, shots[i][2], { x, y: 2.35 + ih + 0.6, w: iw, h: 0.35, fontSize: 14 });
-    }
-    caption(s, "Also: tables, and charts whose values are computed by the server (the LLM gives only the function and range). All three generated with real APIs; slide text is Korean.", { x: M, y: 5.5, w: W - 2 * M, h: 0.5, fontSize: 13 });
+    const g = 0.35, iw = (CW - 2 * g) / 3, ih = iw * 9 / 16;
+    shots.forEach((sh, i) => {
+      const x = M + i * (iw + g);
+      mono(s, sh[1].toUpperCase(), { x, y: 2.75, w: iw, h: 0.28 });
+      img(s, sh[0], x, 3.08, iw, ih, sh[1] + " slide generated by NextSlide", sh[1] + " screenshot");
+      T(s, sh[2], { x, y: 3.08 + ih + 0.16, w: iw, h: 0.35, fontSize: 15, color: C.text2 });
+    });
+    capline(s, "Also", "Tables, and charts whose values the server computes (the LLM gives only the function and range). All three made with real APIs; slide text is Korean.");
   }
 
-  // 6. Demo
+  // 6. 시연
   {
-    const s = S("DARK_SECTION", "System");
-    s.addText("Live demo", { placeholder: "title" });
-    const items = [
-      ["FaCommentSlash", "Normal speech", "An explanation creates nothing"],
-      ["FaFileLines", "“다음 슬라이드…”", "A request (“In the next slide…”): title and bullets appear first"],
-      ["FaWandMagicSparkles", "Denoising preview", "x̂₀ at each step, then the image"],
-      ["FaBan", "“만들지 마세요”", "A negation (“Don't make it”) is ignored"],
+    const s = S("SECTION", "System");
+    mono(s, "WATCH FOR FOUR THINGS", { x: M, y: 0.46, w: 6, h: 0.3 });
+    title(s, ["Live ", "demo"]);
+    const ko = (t) => ({ text: t, options: { fontFace: KO } });
+    const rows = [
+      [[{ text: "Normal speech" }], [{ text: "An explanation creates nothing" }]],
+      [[ko("“다음 슬라이드…”")], [{ text: "A request (“In the next slide…”): title and bullets appear first" }]],
+      [[{ text: "Denoising preview" }], [{ text: "x̂₀", options: { fontFace: MONO } }, { text: " at each step, then the image" }]],
+      [[ko("“만들지 마세요”")], [{ text: "A negation (“Don't make it”) is ignored" }]],
     ];
-    const cw = (W - 2 * M - 3 * 0.3) / 4;
-    for (let i = 0; i < 4; i++) {
-      const x = M + i * (cw + 0.3);
-      card(s, x, 2.0, cw, 3.2, "264653", "Demo step " + (i + 1));
-      text(s, String(i + 1), { x: x + 0.3, y: 2.25, w: 1, h: 0.8, fontSize: 40, bold: true, color: "E9B949", fontFace: "Cambria" });
-      await iconDot(s, items[i][0], x + cw - 1.0, 2.3, 0.7, "2A9D8F", "FFFFFF", items[i][1] + " icon");
-      text(s, items[i][1], { x: x + 0.3, y: 3.35, w: cw - 0.6, h: 0.8, fontSize: 19, bold: true, color: "FFFFFF" });
-      text(s, items[i][2], { x: x + 0.3, y: 4.15, w: cw - 0.6, h: 0.8, fontSize: 15, color: "CFE8E4" });
-    }
-    text(s, "Spoken to the system in Korean (it is built for Korean lectures) · Backup: recorded video of the same flow", { x: M, y: 5.75, w: W - 2 * M, h: 0.4, fontSize: 14, color: "A9B8C9", italic: true });
+    const y0 = 2.35, rh = 0.84;
+    rows.forEach((r, i) => {
+      const y = y0 + i * rh;
+      s.addShape(pres.shapes.LINE, { x: M, y, w: CW, h: 0, line: { color: C.accent3, width: 0.75 }, objectName: "Row rule " + (i + 1) });
+      mono(s, "0" + (i + 1), { x: M, y: y + 0.27, w: 0.6, h: 0.3, fontSize: 12 });
+      T(s, r[0], { x: 1.6, y, w: 3.7, h: rh, fontSize: 22, valign: "middle" });
+      T(s, r[1], { x: 5.45, y, w: W - M - 5.45, h: rh, fontSize: 17, color: C.text2, valign: "middle" });
+    });
+    s.addShape(pres.shapes.LINE, { x: M, y: y0 + 4 * rh, w: CW, h: 0, line: { color: C.accent3, width: 0.75 }, objectName: "Row rule 5" });
+    dot(s, M, 6.27, 0.12);
+    mono(s, "LIVE", { x: M + 0.24, y: 6.18, w: 0.7, h: 0.3, fontSize: 11 });
+    wave(s, M + 1.0, 6.33, 0.38);
+    T(s, "Spoken to the system in Korean (built for Korean lectures)  ·  Backup: recorded video",
+      { x: 3.35, y: 6.15, w: W - M - 3.35 - 1.1, h: 0.36, fontSize: 14, color: C.text2, valign: "middle" });
   }
 
-  // 7. Diffusion inside the loop
+  // 7. 확산 모델을 고리 안에
   pres.addSection({ title: "Experiments" });
   {
     const s = S("CONTENT", "Experiments");
-    s.addText("Course concepts inside the image stage", { placeholder: "title" });
+    kicker(s, "Experiments  ·  setup");
+    title(s, ["Course concepts ", "inside", " the image stage"]);
+    const xh = (pre, post) => [{ text: pre, options: { bullet: true } }, { text: "x̂₀", options: { fontFace: MONO } }, { text: post, options: { breakLine: true } }];
     const cols = [
-      ["FaMicrochip", "Local diffusion, no API", ["SD 1.5: DDIM sampler + classifier-free guidance", "SD-Turbo: adversarially distilled, 1–4 steps, no CFG", "Apple M5 laptop (MPS), image cost $0"]],
-      ["FaEye", "Show the reverse process", ["Capture predicted clean latent x̂₀ at every scheduler step", "Linear 4-channel latent → RGB (no VAE decode)", "Stream a small JPEG to the slide over WebSocket"]],
+      ["Local diffusion, no API", [
+        [{ text: "SD 1.5: DDIM sampler + classifier-free guidance", options: { bullet: true, breakLine: true } }],
+        [{ text: "SD-Turbo: adversarially distilled, 1–4 steps, no CFG", options: { bullet: true, breakLine: true } }],
+        [{ text: "Apple M5 laptop (MPS), image cost $0", options: { bullet: true } }],
+      ]],
+      ["Show the reverse process", [
+        xh("Capture predicted clean latent ", " at every scheduler step"),
+        [{ text: "Linear 4-channel latent → RGB (no VAE decode)", options: { bullet: true, breakLine: true } }],
+        [{ text: "Stream a small JPEG to the slide over WebSocket", options: { bullet: true } }],
+      ]],
     ];
-    for (let i = 0; i < 2; i++) {
-      const x = M + i * 6.2;
-      await iconDot(s, cols[i][0], x, 1.45, 0.6, "1F3A5F", "FFFFFF", cols[i][1] + " icon");
-      text(s, cols[i][1], { x: x + 0.8, y: 1.5, w: 5, h: 0.5, fontSize: 20, bold: true, color: C.text2 });
-      text(s, cols[i][2].map((t, k) => ({ text: t, options: { bullet: true, breakLine: k < cols[i][2].length - 1 } })),
-        { x: x + 0.8, y: 2.1, w: 5.2, h: 1.5, fontSize: 15, color: "1B2B3A", paraSpaceAfter: 6 });
-    }
-    const sw = W - 2 * M, sh = sw * 360 / 2632;
-    s.addImage({ path: A("denoise_strip.jpg"), x: M, y: 4.05, w: sw, h: sh, altText: "Denoising preview at steps 4, 12, 22 of 25 and the final image", objectName: "Denoising strip" });
-    const pw = sw * 664 / 2632;
-    ["step 4 / 25 (x̂₀)", "step 12 / 25", "step 22 / 25", "final image"].forEach((l, i) =>
-      caption(s, l, { x: M + i * pw, y: 4.05 + sh + 0.12, w: pw - 0.2, h: 0.35, fontSize: 13 }));
-    caption(s, "SD 1.5, DDIM 25 steps (≈12 s): the presenter and audience screens show 23 intermediate previews. With SD-Turbo (2 steps, 0.6 s) the preview is barely visible.", { x: M, y: 6.25, w: W - 2 * M, h: 0.5 });
-  }
-
-  // 8. X2 CFG
-  {
-    const s = S("CONTENT", "Experiments");
-    s.addText("Guidance buys alignment, costs diversity", { placeholder: "title" });
-    caption(s, "X2 · SD 1.5, DDIM 25 steps · 12 lecture scenes × 2 fixed seeds · CLIP ViT-B/32 (not the generators' text encoder), cosine × 100", { x: M, y: 1.3, w: W - 2 * M, h: 0.4, fontSize: 13 });
-    const labels = ["1", "3", "5", "7.5", "12"];
-    const line = (title, vals, min, max, fmt, color) => ({
-      ...chartBase, title, chartColors: [color], lineSize: 2, lineDataSymbol: "circle", lineDataSymbolSize: 8,
-      dataLabelPosition: "t", valAxisMinVal: min, valAxisMaxVal: max, dataLabelFormatCode: fmt, valAxisLabelFormatCode: fmt,
-      showCatAxisTitle: true, catAxisTitle: "CFG scale", catAxisTitleColor: "5B6B7B", catAxisTitleFontSize: 12, catAxisTitleFontFace: "+mn-lt",
+    cols.forEach((c, i) => {
+      const x = M + i * 6.1;
+      mono(s, c[0].toUpperCase(), { x, y: 1.95, w: 5.6, h: 0.3 });
+      T(s, c[1].flat(), { x, y: 2.32, w: 5.6, h: 1.4, fontSize: 15, paraSpaceAfter: 6 });
     });
-    s.addChart(pres.charts.LINE, [{ name: "CLIP alignment", labels, values: [21.5, 24.6, 25.7, 25.0, 25.6] }],
-      { x: M, y: 1.8, w: 5.9, h: 3.7, ...line("Scene alignment (CLIP, higher = closer to the prompt)", [], 20, 27, "0.0", H.accent1), objectName: "CFG vs CLIP chart" });
-    s.addChart(pres.charts.LINE, [{ name: "Diversity", labels, values: [0.269, 0.209, 0.213, 0.182, 0.177] }],
-      { x: 6.85, y: 1.8, w: 5.9, h: 3.7, ...line("Diversity between seeds (1 − cosine)", [], 0.15, 0.28, "0.00", H.dk2), objectName: "CFG vs diversity chart" });
-    card(s, M, 5.75, W - 2 * M, 0.95, "FDF3DC", "CLIP warning");
-    await iconDot(s, "FaTriangleExclamation", M + 0.25, 5.92, 0.6, "E9B949", "FFFFFF", "Warning icon");
-    text(s, [
-      { text: "X1 sampler check: ", options: { bold: true } },
-      { text: "DDPM at 10 steps visibly broke shapes while DDIM kept them, yet CLIP scores were the same (25.5 vs 25.1). CLIP measures prompt match, not quality." },
-    ], { x: M + 1.05, y: 5.75, w: W - 2 * M - 1.3, h: 0.95, fontSize: 15, valign: "middle" });
+    const sw = CW, sh = sw * 360 / 2632, sy = 3.95;
+    img(s, "denoise_strip.jpg", M, sy, sw, sh, "Denoising preview at steps 4, 12, 22 of 25 and the final image", "Denoising strip");
+    const pw = sw * 664 / 2632;
+    [["x̂₀  ·  STEP 4 / 25", false], ["STEP 12 / 25", false], ["STEP 22 / 25", false], ["FINAL IMAGE", true]].forEach((l, i) =>
+      mono(s, l[0], { x: M + i * pw, y: sy + sh + 0.14, w: pw - 0.2, h: 0.28, color: l[1] ? C.accent1 : C.text2 }));
+    capline(s, "Note", "SD 1.5, DDIM 25 steps (about 12 s): presenter and audience screens show 23 intermediate previews. With SD-Turbo (2 steps, 0.6 s) the preview is barely visible.");
   }
 
-  // 9. X3 distillation
+  // 8. X2 가이던스
   {
     const s = S("CONTENT", "Experiments");
-    s.addText("A distilled model fits a live lecture", { placeholder: "title" });
-    caption(s, "X3 · same 12 scenes × 2 seeds, 768 × 432 · time = median per image on the laptop after warm-up", { x: M, y: 1.3, w: W - 2 * M, h: 0.4, fontSize: 13 });
+    kicker(s, "Experiments  ·  X2 guidance scale");
+    title(s, ["Guidance buys alignment, ", "costs diversity"]);
+    const labels = ["1", "3", "5", "7.5", "12"];
+    const line = (ttl, min, max, fmt, color) => ({
+      ...chartBase(), title: ttl, chartColors: [color], lineSize: 2, lineDataSymbol: "circle", lineDataSymbolSize: 8,
+      dataLabelPosition: "t", valAxisMinVal: min, valAxisMaxVal: max, dataLabelFormatCode: fmt, valAxisLabelFormatCode: fmt,
+      showCatAxisTitle: true, catAxisTitle: "CFG scale", catAxisTitleColor: H.dk2, catAxisTitleFontSize: 12, catAxisTitleFontFace: "+mn-lt",
+    });
+    const cw = (CW - 0.35) / 2;
+    s.addChart(pres.charts.LINE, [{ name: "CLIP alignment", labels, values: [21.5, 24.6, 25.7, 25.0, 25.6] }],
+      { x: M, y: 1.9, w: cw, h: 3.5, ...line("Scene alignment (CLIP, higher is closer)", 20, 27, "0.0", H.accent1), objectName: "CFG vs CLIP chart" });
+    s.addChart(pres.charts.LINE, [{ name: "Diversity", labels, values: [0.269, 0.209, 0.213, 0.182, 0.177] }],
+      { x: M + cw + 0.35, y: 1.9, w: cw, h: 3.5, ...line("Diversity between seeds (1 − cosine)", 0.15, 0.28, "0.00", H.accent2), objectName: "CFG vs diversity chart" });
+    box(s, M, 5.55, CW, 1.0, "Sampler warning");
+    mono(s, "X1  ·  SAMPLER CHECK", { x: M + 0.3, y: 5.68, w: 4, h: 0.28 });
+    T(s, "DDPM at 10 steps visibly broke shapes while DDIM kept them, yet CLIP scores were the same (25.5 vs 25.1). CLIP measures prompt match, not quality.",
+      { x: M + 0.3, y: 5.98, w: CW - 0.6, h: 0.5, fontSize: 14.5 });
+    capline(s, "Method", "X2 · SD 1.5, DDIM 25 steps · 12 lecture scenes × 2 fixed seeds · CLIP ViT-B/32 (not the generators' text encoder), cosine × 100");
+  }
+
+  // 9. X3 증류 모델
+  {
+    const s = S("CONTENT", "Experiments");
+    kicker(s, "Experiments  ·  X3 distilled model");
+    title(s, ["A ", "distilled", " model fits a live lecture"]);
     s.addChart(pres.charts.BAR, [{ name: "Seconds per image", labels: ["SD-Turbo · 1 step", "SD-Turbo · 2 steps", "SD-Turbo · 4 steps", "SD 1.5 · 25 steps, CFG 7.5"], values: [0.51, 0.68, 0.99, 11.1] }], {
-      x: M, y: 1.8, w: 7.0, h: 3.9, ...chartBase, barDir: "bar", title: "Seconds per image (lower is better)",
+      x: M, y: 1.9, w: 7.1, h: 3.55, ...chartBase(), barDir: "bar", title: "Seconds per image (lower is better)",
       chartColors: [H.accent1, H.accent1, H.accent1, H.accent4], dataLabelPosition: "outEnd", dataLabelFormatCode: "0.0#\" s\"",
       valAxisHidden: true, valGridLine: { style: "none" }, barGapWidthPct: 60, catAxisOrientation: "maxMin", catAxisLabelFontSize: 13,
       objectName: "Speed chart",
     });
     const stats = [
-      ["≈16×", "faster than SD 1.5", "0.68 s vs 11.1 s (2 steps vs 25 steps)"],
-      ["28.2 vs 25.0", "CLIP alignment", "SD-Turbo 2 steps vs SD 1.5; CIs barely overlap"],
+      ["~16×", "faster than SD 1.5", "0.68 s vs 11.1 s (2 steps vs 25 steps)", C.accent1],
+      ["28.2 vs 25.0", "CLIP alignment", "SD-Turbo 2 steps vs SD 1.5; CIs barely overlap", C.text1],
     ];
-    for (let i = 0; i < 2; i++) {
-      const y = 1.9 + i * 1.75;
-      text(s, stats[i][0], { x: 8.1, y, w: 4.6, h: 0.8, fontSize: 40, bold: true, color: i === 0 ? H.accent1 : C.text2, fontFace: "Cambria" });
-      text(s, stats[i][1], { x: 8.1, y: y + 0.8, w: 4.6, h: 0.4, fontSize: 16, bold: true });
-      caption(s, stats[i][2], { x: 8.1, y: y + 1.2, w: 4.6, h: 0.4 });
-    }
-    card(s, M, 5.95, W - 2 * M, 0.75, "F1F5F7", "Caveat");
-    text(s, [
-      { text: "Caveat: ", options: { bold: true } },
-      { text: "SD-Turbo is built on SD 2.1 with a larger text encoder, so this is not distillation alone. System default: SD-Turbo, 2 steps. (gpt-image-2 API: 14–19 s, n = 1)" },
-    ], { x: M + 0.3, y: 5.95, w: W - 2 * M - 0.6, h: 0.75, fontSize: 14, valign: "middle", color: "44546A" });
+    stats.forEach((st, i) => {
+      const y = 1.95 + i * 1.75;
+      T(s, st[0], { x: 8.35, y, w: W - M - 8.35, h: 0.85, fontFace: SERIF, fontSize: i ? 46 : 60, color: st[3], valign: "bottom" });
+      T(s, st[1], { x: 8.35, y: y + 0.92, w: W - M - 8.35, h: 0.35, fontSize: 16, bold: true });
+      T(s, st[2], { x: 8.35, y: y + 1.27, w: W - M - 8.35, h: 0.35, fontSize: 12.5, color: C.text2 });
+    });
+    box(s, M, 5.55, CW, 1.05, "Caveat");
+    T(s, [
+      { text: "CAVEAT", options: { fontFace: MONO, fontSize: 10.5, charSpacing: 2, color: C.accent1, breakLine: true } },
+      { text: "SD-Turbo is built on SD 2.1 with a larger text encoder, so this is not distillation alone.", options: { breakLine: true } },
+      { text: "System default: SD-Turbo, 2 steps. For reference, the gpt-image-2 API took 14–19 s (n = 1)." },
+    ], { x: M + 0.3, y: 5.55, w: CW - 0.6, h: 1.05, fontSize: 14, valign: "middle" });
+    capline(s, "Method", "X3 · same 12 scenes × 2 seeds, 768 × 432 · time = median per image on the laptop after warm-up");
   }
 
-  // 10. X4 context
+  // 10. X4 강의 맥락
   {
     const s = S("CONTENT", "Experiments");
-    s.addText("Lecture context moves images toward the intent", { placeholder: "title" });
-    caption(s, "X4 · 42 scenarios (12 general + 30 from this course's lectures) · A = request only, B = request + recent speech + current slide · same planner, SD-Turbo, seeds · intended scene written and committed to git before generation", { x: M, y: 1.3, w: 6.3, h: 0.85, fontSize: 12 });
-    text(s, "+2.10", { x: M, y: 2.25, w: 2.7, h: 1.05, fontSize: 60, bold: true, color: H.accent1, fontFace: "Cambria" });
-    text(s, [{ text: "CLIP points, image ↔ intended scene", options: { bold: true, breakLine: true } },
-      { text: "95% CI +0.65 to +3.61 · permutation p = 0.010 · B better in 17 of 28 pairs", options: { fontSize: 13, color: "5B6B7B" } }],
-      { x: M + 2.8, y: 2.3, w: 3.5, h: 1.0, fontSize: 16 });
+    kicker(s, "Experiments  ·  X4 lecture context");
+    title(s, ["Lecture context moves images ", "toward the intent"]);
+    T(s, "+2.10", { x: M, y: 1.85, w: 3.3, h: 1.3, fontFace: SERIF, fontSize: 88, color: C.accent1, valign: "middle" });
+    T(s, [{ text: "CLIP points between the image and the intended scene", options: { bold: true, breakLine: true } },
+      { text: "95% CI +0.65 to +3.61 · permutation p = 0.010 · B better in 17 of 28 pairs", options: { fontSize: 12.5, color: C.text2, paraSpaceBefore: 4 } }],
+      { x: M + 3.35, y: 1.95, w: 3.2, h: 1.1, fontSize: 15, valign: "middle" });
     const mini = [
-      ["7 → 0", "clarification questions out of 42", "Without context the planner couldn't tell what “that analogy” meant"],
-      ["+6.41 → +2.10", "gain in prompt text → gain in image", "Text p = 0.002; the image model loses two-thirds of it"],
+      [[{ text: "7 " }, { text: "→", options: { fontFace: "+mn-lt" } }, { text: " 0" }], "clarification questions out of 42", "Without context the planner couldn't tell what “that analogy” meant"],
+      [[{ text: "+6.41 " }, { text: "→", options: { fontFace: "+mn-lt" } }, { text: " +2.10" }], "text gain → image gain", "Text p = 0.002; the image model loses two-thirds of it"],
     ];
-    for (let i = 0; i < 2; i++) {
-      const y = 3.6 + i * 1.4;
-      card(s, M, y, 6.3, 1.2, "F1F5F7", "Stat card " + (i + 1));
-      text(s, mini[i][0], { x: M + 0.25, y, w: 2.45, h: 1.2, fontSize: 24, bold: true, color: C.text2, fontFace: "Cambria", valign: "middle" });
-      text(s, [{ text: mini[i][1], options: { bold: true, breakLine: true } }, { text: mini[i][2], options: { fontSize: 13, color: "5B6B7B" } }],
-        { x: M + 2.75, y, w: 3.4, h: 1.2, fontSize: 15, valign: "middle" });
-    }
-    const ih = 5.0, iw = ih * 720 / 680;
-    s.addImage({ path: A("x4_examples.jpg"), x: W - M - iw, y: 1.35, w: iw, h: ih, altText: "Pairs of images without and with lecture context for scenarios S09, L24 and L26", objectName: "X4 examples" });
-    caption(s, "S09: modern classroom → Joseon-era exam hall (what the lecturer meant)", { x: W - M - iw, y: 1.35 + ih + 0.08, w: iw, h: 0.35, fontSize: 11 });
+    mini.forEach((m, i) => {
+      const y = 3.4 + i * 1.3;
+      box(s, M, y, 6.55, 1.1, "Stat card " + (i + 1));
+      T(s, m[0], { x: M + 0.25, y, w: 2.6, h: 1.1, fontFace: SERIF, fontSize: 27, valign: "middle" });
+      T(s, [{ text: m[1], options: { bold: true, breakLine: true } }, { text: m[2], options: { fontSize: 12.5, color: C.text2 } }],
+        { x: M + 2.95, y, w: 3.45, h: 1.1, fontSize: 15, valign: "middle" });
+    });
+    T(s, "Top row, S09: a modern classroom (A) becomes the Joseon-era exam hall the lecturer meant (B).", { x: M, y: 6.02, w: 6.55, h: 0.45, fontSize: 12.5, italic: true, color: C.text2 });
+    const ih = 4.55, iw = ih * 720 / 680;
+    img(s, "x4_examples.jpg", W - M - iw, 1.9, iw, ih, "Pairs of images without and with lecture context for scenarios S09, L24 and L26", "X4 examples");
+    capline(s, "Method", "X4 · 42 scenarios (12 general + 30 from this course) · A: request only, B: + recent speech + current slide · same planner, model, seeds · intended scenes committed to git before generation", 11);
   }
 
-  // 11. Failures
+  // 11. 실패와 한계
   pres.addSection({ title: "Closing" });
   {
     const s = S("CONTENT", "Closing");
-    s.addText("What didn't work, and what it taught me", { placeholder: "title" });
+    kicker(s, "Limits");
+    title(s, ["What ", "didn't", " work, and what it taught me"]);
     const items = [
-      ["FaFont", "Fake text in images", "SD-Turbo writes pseudo-text on paper and signs. Weak CFG + negative prompt (X5) and a “blank surfaces” planner rule: ≈ 9 / 34 images before and after.", "Known limitation; gpt-image-2 when quality matters"],
-      ["FaRuler", "CLIP as a text detector", "Zero-shot “image with text” probability. Of the top 6 flagged images, only 1 really had text.", "Dropped; text needs human judgment"],
-      ["FaBug", "77-token truncation (bug found)", "Planner image prompts exceeded CLIP's 77-token limit in 18 / 18 cases, so style words were cut.", "Fixed: token-aware trimming → 7 / 17"],
-      ["FaScaleBalanced", "Evaluation limits", "CLIP is the only metric. Scenarios and intended scenes were written by the same side (with an AI assistant). Latency is n = 1.", "Next: blind human evaluation"],
+      ["Fake text in images", "SD-Turbo writes pseudo-text on paper and signs. Weak CFG + negative prompt (X5) and a “blank surfaces” planner rule: about 9 / 34 images before and after.", "Known limitation; gpt-image-2 when quality matters", false],
+      ["CLIP as a text detector", "Zero-shot “image with text” probability. Of the top 6 flagged images, only 1 really had text.", "Dropped; text needs human judgment", false],
+      ["77-token truncation (bug found)", "Planner image prompts exceeded CLIP's 77-token limit in 18 / 18 cases, so style words were cut.", "Fixed: token-aware trimming → 7 / 17", true],
+      ["Evaluation limits", "CLIP is the only metric. Scenarios and intended scenes were written by the same side (with an AI assistant). Latency is n = 1.", "Next: blind human evaluation", false],
     ];
-    const cw = (W - 2 * M - 0.35) / 2, ch = 2.45;
-    for (let i = 0; i < 4; i++) {
-      const x = M + (i % 2) * (cw + 0.35), y = 1.45 + Math.floor(i / 2) * (ch + 0.3);
-      card(s, x, y, cw, ch, "F1F5F7", items[i][1] + " card");
-      await iconDot(s, items[i][0], x + 0.3, y + 0.3, 0.6, i === 2 ? H.accent1 : H.accent3, "FFFFFF", items[i][1] + " icon");
-      text(s, items[i][1], { x: x + 1.1, y: y + 0.35, w: cw - 1.4, h: 0.5, fontSize: 18, bold: true, color: C.text2 });
-      text(s, items[i][2], { x: x + 0.3, y: y + 1.0, w: cw - 0.6, h: 0.95, fontSize: 14, color: "1B2B3A" });
-      text(s, "→ " + items[i][3], { x: x + 0.3, y: y + 1.95, w: cw - 0.6, h: 0.4, fontSize: 14, bold: true, color: i === 2 ? H.accent1 : "B5472E" });
-    }
+    const g = 0.3, cw = (CW - g) / 2, ch = 2.2;
+    items.forEach((it, i) => {
+      const x = M + (i % 2) * (cw + g), y = 1.95 + Math.floor(i / 2) * (ch + 0.25);
+      box(s, x, y, cw, ch, it[0] + " card");
+      mono(s, "0" + (i + 1), { x: x + 0.3, y: y + 0.3, w: 0.5, h: 0.28, fontSize: 12 });
+      T(s, it[0], { x: x + 0.85, y: y + 0.22, w: cw - 1.15, h: 0.45, fontSize: 19, bold: true });
+      T(s, it[1], { x: x + 0.3, y: y + 0.78, w: cw - 0.6, h: 0.9, fontSize: 14, color: C.text2 });
+      T(s, "→ " + it[2], { x: x + 0.3, y: y + 1.72, w: cw - 0.6, h: 0.32, fontSize: 14, bold: true, color: it[3] ? C.accent1 : C.text1 });
+    });
   }
 
-  // 12. Takeaways
+  // 12. 정리
   {
-    const s = S("DARK_SECTION", "Closing");
-    s.addText("Takeaways", { placeholder: "title" });
+    const s = S("SECTION", "Closing");
+    mono(s, "CLOSING", { x: M, y: 0.46, w: 6, h: 0.3 });
+    title(s, ["Takeaways"]);
     const items = [
-      ["The lecture is a good condition", "+2.1 CLIP toward the intended scene (p = 0.010), and 0 clarification questions instead of 7"],
-      ["Distillation makes diffusion live", "0.7 s per image; ≈ 6 s from spoken request to finished slide"],
+      ["The lecture is a good condition", "+2.1 CLIP toward the intended scene (p = 0.010); 0 clarifying questions, not 7"],
+      ["Distillation makes diffusion live", "0.7 s per image; about 6 s from spoken request to finished slide"],
       ["The bottleneck is the image model", "Context gains shrink by two-thirds from text to image; fake text remains"],
     ];
-    for (let i = 0; i < 3; i++) {
-      const y = 1.9 + i * 1.25;
-      text(s, String(i + 1), { x: M, y, w: 0.7, h: 1.0, fontSize: 40, bold: true, color: "E9B949", fontFace: "Cambria" });
-      text(s, [{ text: items[i][0], options: { bold: true, fontSize: 22, color: "FFFFFF", breakLine: true } }, { text: items[i][1], options: { fontSize: 16, color: "CFE8E4" } }],
-        { x: M + 0.9, y: y + 0.05, w: 7.6, h: 1.05 });
-    }
-    card(s, 9.4, 1.9, 3.33, 2.75, "264653", "Next steps card");
-    text(s, [
-      { text: "Next", options: { bold: true, fontSize: 20, color: "E9B949", breakLine: true } },
+    items.forEach((it, i) => {
+      const y = 2.15 + i * 1.25;
+      T(s, String(i + 1), { x: M, y: y - 0.12, w: 0.6, h: 0.8, fontFace: SERIF, fontSize: 46, color: C.accent1 });
+      T(s, [{ text: it[0], options: { fontSize: 23, breakLine: true } }, { text: it[1], options: { fontSize: 15, color: C.text2, paraSpaceBefore: 3 } }],
+        { x: M + 0.8, y, w: 7.7, h: 1.05 });
+    });
+    const nx = 9.3, nw = W - M - nx;
+    box(s, nx, 2.2, nw, 2.55, "Next steps card");
+    mono(s, "NEXT", { x: nx + 0.3, y: 2.45, w: 2, h: 0.28 });
+    T(s, [
       { text: "Blind human rating of fit, breakage and fake text", options: { bullet: true, breakLine: true } },
       { text: "Real STT transcripts in the detector test set", options: { bullet: true, breakLine: true } },
-      { text: "Latency with n ≥ 10", options: { bullet: true } },
-    ], { x: 9.65, y: 2.1, w: 2.9, h: 2.4, fontSize: 15, color: "FFFFFF", paraSpaceAfter: 6 });
-    text(s, "Thank you · Questions?", { x: M, y: 6.0, w: 8, h: 0.6, fontSize: 24, bold: true, color: "FFFFFF", fontFace: "Cambria" });
+      { text: "Latency over 10+ runs", options: { bullet: true } },
+    ], { x: nx + 0.3, y: 2.85, w: nw - 0.55, h: 1.75, fontSize: 15, paraSpaceAfter: 8 });
+    T(s, [{ text: "Thank you  ·  " }, { text: "Questions?", options: { italic: true, color: C.accent1 } }],
+      { x: M, y: 5.95, w: 8, h: 0.75, fontFace: SERIF, fontSize: 36 });
   }
 
   await pres.writeFile({ fileName: OUT });
@@ -572,7 +684,8 @@ function writeScript() {
   L.push(`발표 파일: [NextSlide_final.pptx](NextSlide_final.pptx). 슬라이드 노트에도 같은 대본이 들어 있습니다. 이 파일과 노트는 \`build_deck.js\`가 함께 만듭니다.`, "");
   L.push(`- 예상 시간: 약 ${Math.floor(total / 60)}분 ${total % 60}초(시연 2분 포함).`);
   L.push("- 시연을 발표 끝에 하려면 PowerPoint에서 6번 슬라이드(Live demo)를 12번(Takeaways) 앞으로 옮기면 됩니다. 대본 순서도 같이 옮깁니다.");
-  L.push("- [name] 자리에 이름을 넣어 말하세요. 표지에는 이름이 없으니 필요하면 직접 추가하세요.", "");
+  L.push("- [name] 자리에 이름을 넣어 말하세요. 표지에는 이름이 없으니 필요하면 직접 추가하세요.");
+  L.push("- 글꼴: 덱은 Instrument Serif·Instrument Sans·IBM Plex Mono를 씁니다(OFL). 발표할 컴퓨터에 `fonts/` 폴더의 글꼴을 먼저 설치하세요. 없으면 PowerPoint가 다른 글꼴로 바꿔 보여 줍니다.", "");
   SCRIPT.forEach((s, i) => {
     L.push(`## ${i + 1}. ${s.title} (${s.t})`, "", `**EN** ${s.en}`, "", `**KO** ${s.ko}`, "");
     if (s.title === "Live demo") {

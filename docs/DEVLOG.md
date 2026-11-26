@@ -592,3 +592,25 @@ Cloud Billing이 꺼진 Gemini 키는 무료 등급이라 입력 음성이 Googl
 - **문제**: GitHub raw가 `.html`을 `text/plain`으로 보내서, 링크를 누르면 파일이 저장되지 않고 소스 코드가 화면에 뜹니다. 4MB라 GitHub 파일 화면에서도 미리보기가 안 됩니다.
 - **조치**: `build_guide.py`가 HTML과 함께 `docs/presentation/NextSlide_guide.zip`(2.86MB, HTML 1개만 들어 있음)도 만들도록 했습니다. zip은 브라우저가 항상 저장합니다. zip 안 파일의 날짜를 고정해, 내용이 같으면 다시 만들어도 zip이 바뀌지 않습니다.
 - 내려받기 링크: `https://github.com/nunu0404/GenAI-proj-2026/raw/main/docs/presentation/NextSlide_guide.zip`
+
+---
+
+## 2026-11-26 (27) — 발표 PPT 리디자인: frontend-slides 스타일 탐색 → "실시간 자막" 디자인(편집형 PPTX)
+
+- **방법**: [frontend-slides](https://github.com/zarazhangrui/frontend-slides)(Claude Code용 HTML 슬라이드 스킬)의 원 저장소를 읽고, 그 진행 방식대로 같은 표지를 세 스타일로 만들어 비교했습니다. 세 스타일은 Swiss Modern(기본 프리셋), Neo-Grid Bold(템플릿), 이 프로젝트용 맞춤 디자인입니다. 사용자는 맞춤 디자인인 **"실시간 자막"**과 **편집 가능한 PPTX**를 골랐습니다. frontend-slides는 HTML을 만들기 때문에, 고른 디자인 체계를 pptxgenjs로 옮겨 다시 만들었습니다.
+- **디자인**
+  - 어두운 바탕(#0E1013)에 은은한 빛 번짐과 입자를 넣었습니다(`assets/bg_*.jpg`, 결정적 난수로 생성).
+  - 포인트 색은 호박색(#FFB547) 하나만 씁니다.
+  - 글꼴: 제목 Instrument Serif(강조어는 이탤릭 호박색), 본문 Instrument Sans, 라벨 IBM Plex Mono.
+  - 장마다 아래쪽에 측정 방법·출처를 자막처럼 한 줄로 두고, 표지와 시연 장에는 LIVE 표시와 음성 파형을 넣었습니다.
+  - 내용·대본·노트·예상 질문은 그대로입니다. 12장, 605초.
+- **글꼴**
+  - `docs/presentation/fonts/`에 OFL 글꼴 파일과 라이선스를 넣었습니다. 발표 컴퓨터에 설치해야 디자인대로 보입니다(script.md에 안내 추가).
+  - Instrument 글꼴에 없는 글자는 피하거나 IBM Plex Mono로 썼습니다. `₀ ≈ ≥`는 Sans에, `→`는 Serif에 없습니다(x̂₀는 Mono로, ≈16×는 ~16×로).
+  - 한글 라벨 두 개는 Apple SD Gothic Neo로 지정했습니다.
+- **확인**
+  - `validate.py`를 통과했습니다.
+  - 처음에는 이미 켜져 있던 PowerPoint가 새로 설치한 글꼴을 읽지 못했습니다. 사용자 동의를 받아 PowerPoint를 재시작했고, 실제 글꼴로 PDF를 만들어 12장을 모두 확인했습니다.
+  - 그 과정에서 고친 것: 제목 가운데 정렬, `+2.10` 줄바꿈, 파이프라인 단계 이름 겹침, 두 줄 자막의 들여쓰기, 표 머리글 세 줄, 차트 제목 두 줄.
+  - 해설서(HTML)의 슬라이드 미리보기 12장과 디자인 설명도 새 디자인으로 바꿨습니다.
+- 이전 디자인(흰 바탕, Cambria/Calibri)은 커밋 `eb7429f`에 남아 있습니다.

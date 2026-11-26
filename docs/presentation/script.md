@@ -5,6 +5,7 @@
 - 예상 시간: 약 10분 5초(시연 2분 포함).
 - 시연을 발표 끝에 하려면 PowerPoint에서 6번 슬라이드(Live demo)를 12번(Takeaways) 앞으로 옮기면 됩니다. 대본 순서도 같이 옮깁니다.
 - [name] 자리에 이름을 넣어 말하세요. 표지에는 이름이 없으니 필요하면 직접 추가하세요.
+- 글꼴: 덱은 Instrument Serif·Instrument Sans·IBM Plex Mono를 씁니다(OFL). 발표할 컴퓨터에 `fonts/` 폴더의 글꼴을 먼저 설치하세요. 없으면 PowerPoint가 다른 글꼴로 바꿔 보여 줍니다.
 
 ## 1. Title (0:30)
 

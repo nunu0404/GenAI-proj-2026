@@ -217,10 +217,10 @@ def demo_html(lines):
 
 SLIDE_INFO = {  # 번호: (역할, 화면 구성, 뒷받침 근거)
     1: ("무엇을 만들었는지 한 문장으로 알립니다.",
-        "제목·부제, 실제로 생성된 슬라이드 한 장(학습률이 클 때를 등산객에 비유한 그림).",
+        "제목·부제, 실제로 생성된 슬라이드 한 장(학습률이 클 때를 등산객에 비유한 그림), 그 요청을 실시간 자막처럼 보여 주는 아래 줄.",
         "11-05 실제 API 점검 G③의 결과 화면."),
     2: ("왜 필요한지(평가 기준 ‘유용성’)를 보여 줍니다.",
-        "즉석 비유 발화 예시, 세 가지 어려움(즉석 비유·예상 못 한 질문·흐름 끊김), 목표 배너.",
+        "즉석 비유 발화 예시, 세 가지 어려움(즉석 비유·예상 못 한 질문·흐름 끊김), 목표 문장.",
         "사용 시나리오 설명."),
     3: ("창의성(새로움 15점)의 중심 주장인 ‘조건 설계’를 제시합니다.",
         "조건 3요소(요청·최근 발화·현재 장) → 슬라이드 계획 도식, ZeroPrep과의 비교표.",
@@ -858,6 +858,7 @@ def build():
   <div class="stat"><b>약 10분</b><span>대본 기준 10분 5초, 시연 2분 포함</span></div>
   <div class="stat"><b>영·한 대본</b><span>슬라이드 노트와 <code>script.md</code>에 같은 내용</span></div>
 </div>
+<p><b>디자인</b>: <a href="https://github.com/zarazhangrui/frontend-slides">frontend-slides</a>의 방식대로 같은 표지를 세 가지 스타일로 만들어 비교한 뒤, 이 프로젝트에 맞춰 새로 만든 “실시간 자막” 스타일을 골랐습니다. 어두운 바탕에 세리프 제목(Instrument Serif), 본문(Instrument Sans), 라벨(IBM Plex Mono)을 쓰고, 포인트 색은 호박색 하나만 씁니다. 장마다 아래쪽에 측정 방법·출처를 자막처럼 한 줄로 둡니다. PowerPoint에서 바로 고칠 수 있는 편집형 PPTX이고, 발표할 컴퓨터에는 <code>docs/presentation/fonts/</code>의 글꼴을 먼저 설치해야 그대로 보입니다.</p>
 <h3 id="deck-flow">6-1. 흐름과 평가 기준</h3>
 <div class="flow">
   <div class="box"><b>문제</b>1~2장</div><span class="arrow">→</span>
@@ -948,6 +949,7 @@ python3 docs/presentation/build_guide.py</code></pre>
 <tr><td><code>docs/presentation/NextSlide_final.pptx</code></td><td>발표 PPT (영어 12장, 노트에 영·한 대본)</td></tr>
 <tr><td><code>docs/presentation/script.md</code></td><td>발표 대본, 시연 대본, 예상 질문</td></tr>
 <tr><td><code>docs/presentation/build_deck.js</code> · <code>build_guide.py</code></td><td>PPT·대본 생성 스크립트, 이 해설서 생성 스크립트</td></tr>
+<tr><td><code>docs/presentation/fonts/</code></td><td>덱 글꼴(Instrument Serif·Sans, IBM Plex Mono, OFL). 발표 컴퓨터에 설치</td></tr>
 <tr><td><code>docs/diffusion-experiments.md</code></td><td>확산 실험 X1~X5, X4 상세 기록</td></tr>
 <tr><td><code>docs/results.md</code></td><td>테스트, 실제 API 점검, 감지 평가, 미검증 항목</td></tr>
 <tr><td><code>docs/architecture.md</code></td><td>구조와 데이터 흐름</td></tr>
