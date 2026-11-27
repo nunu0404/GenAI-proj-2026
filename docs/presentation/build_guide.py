@@ -4,7 +4,7 @@
 결과: docs/presentation/NextSlide_guide.html (그림을 base64로 넣은 단일 파일, 오프라인에서도 열림)
 
 - 수치는 모두 저장소의 실험 기록(docs/diffusion-experiments.md, docs/results.md, eval/results/…)에서 옮겼다.
-- 발표 대본·시연·예상 질문은 script.md(= build_deck.js 가 만든 파일)를 읽어 넣는다.
+- 발표 대본, 시연, 예상 질문은 script.md(= build_deck.js 가 만든 파일)를 읽어 넣는다.
 """
 from __future__ import annotations
 
@@ -107,7 +107,7 @@ def stacked_latency():
         for name, v in segs:
             w = pw * v / vmax
             cls = "s-navy" if name == "기획" else "s-teal"
-            o.append(f'<g><title>{esc(lab)} · {name} {v}초</title><rect class="c-bar {cls}" x="{x:.1f}" y="{y0+8}" '
+            o.append(f'<g><title>{esc(lab)}, {name} {v}초</title><rect class="c-bar {cls}" x="{x:.1f}" y="{y0+8}" '
                      f'width="{max(w-2,1):.1f}" height="{rh-16}" rx="4"/></g>')
             if w > 38:
                 o.append(f'<text class="c-inbar" x="{x+w/2-1:.1f}" y="{y0+rh/2+4:.1f}" text-anchor="middle">{name} {v}</text>')
@@ -149,7 +149,7 @@ def x4_chart():
         y0 = T + i * rh
         cls = "s-teal" if d >= 0 else "s-coral"
         x1, x2 = sorted([x(0), x(d)])
-        o.append(f'<g class="c-row"><title>{sid}: A {a:.2f} → B {b:.2f} (B−A {d:+.2f}) · 그림 프롬프트 글 B−A {pd:+.2f}</title>'
+        o.append(f'<g class="c-row"><title>{sid}: A {a:.2f} → B {b:.2f} (B−A {d:+.2f}), 그림 프롬프트 글 B−A {pd:+.2f}</title>'
                  f'<rect class="c-hitrow" x="0" y="{y0}" width="{W}" height="{rh}"/>'
                  f'<text class="c-tick" x="{L-8}" y="{y0+rh/2+4:.1f}" text-anchor="end">{sid}</text>'
                  f'<rect class="c-bar {cls}" x="{x1:.1f}" y="{y0+3}" width="{max(x2-x1,1.5):.1f}" height="{rh-6}" rx="3"/>'
@@ -222,34 +222,34 @@ def demo_html(lines):
 
 
 SLIDE_INFO = {  # 번호: (역할, 화면 구성, 뒷받침 근거)
-    1: ('무엇을 만들었는지 한 문장으로 알립니다.', '제목, 한 줄 설명, 시스템이 실제로 만든 장 한 장.', '11-05 실제 API 점검 결과.'),
-    2: ('문제 상황: 강의 중 즉석 비유가 나온다.', '비유 문장 하나만 크게.', '사용 시나리오.'),
-    3: ('그 비유를 보여 줄 장이 없다.', 'Slide 4 · ? · Slide 5, 아래에 ‘지금 만들려면 강의를 멈춰야 한다’.', '사용 시나리오.'),
-    4: ('해결: 그냥 말하면 된다.', '마이크 아이콘과 한국어 문장 말풍선, 영어 번역.', '11-05 실제 API 점검(텍스트 입력 경로)에 넣은 문장.'),
+    1: ('무엇을 만들었는지 한 문장으로 알립니다.', '제목, 한 줄 설명, 시스템이 실제로 만든 장 한 장, 아래에 과목과 학기.', '11-05 실제 API 점검 결과.'),
+    2: ('문제 상황: 강의 중 즉석 비유가 나온다.', '따옴표로 묶은 비유 문장 하나만 크게.', '사용 시나리오.'),
+    3: ('그 비유를 보여 줄 장이 없다.', 'Slide 4, 빈 칸(?), Slide 5를 나란히 두고 아래에 ‘지금 만들려면 강의를 멈춰야 한다’.', '사용 시나리오.'),
+    4: ('해결: 그냥 말하면 된다.', '한국어로 한 말을 연한 파랑 상자에 크게, 아래에 영어 번역.', '11-05 실제 API 점검(텍스트 입력 경로)에 넣은 문장.'),
     5: ('그 결과로 만들어진 장.', '실제로 생성된 슬라이드 한 장을 크게.', '11-05 실제 API 점검(gpt-image-2 경로, 약 20초).'),
-    6: ('동작은 세 단계.', '듣기 → 판단 → 만들기 아이콘 세 개.', '시스템 구조.'),
-    7: ('판단 단계: 분명한 요청에만 반응한다.', '요청(만듦) · 부정(무시) · 인용(무시) 예시 세 줄, 아래에 56/60.', 'eval/detection_cases.jsonl의 clear-02, negated-01, quoted-01; 감지 평가.'),
+    6: ('동작은 세 단계.', '듣기, 판단, 만들기 상자 세 개를 화살표로 잇고(판단만 파랑), 아래에 쓰인 부품.', '시스템 구조.'),
+    7: ('판단 단계: 분명한 요청에만 반응한다.', '표처럼 왼쪽에 한 말(번역), 오른쪽에 결과(만듦, 무시, 무시) 세 줄, 아래에 56/60.', 'eval/detection_cases.jsonl의 clear-02, negated-01, quoted-01; 감지 평가.'),
     8: ('새 장은 발표자에게 먼저 간다.', '다음 장 미리보기(글 먼저, 그림 생성 중) 캡처와 세 줄.', '실제 발표자 화면 캡처.'),
     9: ('핵심 아이디어: 직전에 한 말도 함께 쓴다.', '역사 수업 발화 세 줄(직전 90초)과 요청 한 줄.', 'X4 시나리오 S09(평가용 시나리오, 번역).'),
     10: ('같은 요청이라도 맥락이 있으면 그림이 달라진다.', '요청만(현대 교실) 대 맥락 포함(조선 과거 시험장) 그림 두 장.', 'X4 S09 실제 생성 그림(시드 0).'),
-    11: ('17강: 그림이 필요할 때만 그림을 만든다.', '그림형·수식형·비교형 실제 결과 세 장.', '11-05 실제 API 점검.'),
-    12: ('시연.', '파란 장에 볼거리 네 가지.', '시연 대본(아래 6-3).'),
-    13: ('수업 개념: 확산 모델이 그리는 과정(x̂₀).', '시연과 같은 과적합 비유 장면을 SD 1.5로 그릴 때 가로챈 1·3·6/25단계 x̂₀ 미리보기와 완성 그림, 17강의 x̂₀ 식.', '디노이징 미리보기(5-12). 장면은 eval/diffusion/prompts.json P01, 시드 3(시드 0~3 중 장면이 가장 잘 보이는 것).'),
-    14: ('실험 소개: 세 가지 질문. 질문마다 설정을 먼저, 결과를 나중에 말합니다.', '질문 세 줄.', '—'),
-    15: ('질문 1 실험 설정.', '모델(SD 1.5 25스텝 / SD-Turbo 2스텝) · 데이터(강의 장면 12개 × 시드 2) · 측정(시간 중앙값, CLIP 점수) 세 칸.', 'X3, 3장 공통 조건.'),
-    16: ('질문 1 결과: 충분히 빠르다.', '11.1초 대 0.68초 막대, 16×, CLIP 25.0 → 28.2.', 'X3, 로컬 E2E(n=1).'),
-    17: ('질문 2 실험 설정.', '모델(SD 1.5 DDIM 25스텝, 같은 장면·시드) · 바꾸는 것(가이던스 1·3·5·7.5·12) · 측정(CLIP 점수, 다양성) 세 칸과 17강에서 예상한 결과.', 'X2, 17강 7쪽.'),
-    18: ('질문 2 결과: 가이던스를 올리면 장면을 더 따른다.', '같은 프롬프트·시드의 가이던스 1·3·7.5·12 그림.', 'X2.'),
+    11: ('17강: 그림이 필요할 때만 그림을 만든다.', '그림형, 수식형, 비교형 실제 결과 세 장.', '11-05 실제 API 점검.'),
+    12: ('시연.', '파란 장에 볼거리 네 가지(내가 하는 것과 기대하는 결과).', '시연 대본(아래 6-3).'),
+    13: ('수업 개념: 확산 모델이 그리는 과정(x̂₀).', '시연과 같은 과적합 비유 장면을 SD 1.5로 그릴 때 가로챈 1, 3, 6/25단계 x̂₀ 미리보기와 완성 그림, 17강의 x̂₀ 식.', '디노이징 미리보기(5-12). 장면은 eval/diffusion/prompts.json P01, 시드 3(시드 0~3 중 장면이 가장 잘 보이는 것).'),
+    14: ('실험 소개: 세 가지 질문. 질문마다 설정을 먼저, 결과를 나중에 말합니다.', '질문 세 줄.', '없음.'),
+    15: ('질문 1 실험 설정.', '논문의 설정 표처럼 모델(SD 1.5 25스텝, SD-Turbo 2스텝), 데이터(강의 장면 12개, 시드 2개), 측정(시간 중앙값, CLIP 점수)을 줄로 적음.', 'X3, 3장 공통 조건.'),
+    16: ('질문 1 결과: 충분히 빠르다.', '11.1초 대 0.68초 막대, 16×, CLIP 25.0에서 28.2로.', 'X3, 로컬 E2E(n=1).'),
+    17: ('질문 2 실험 설정.', '같은 표 형식으로 모델(SD 1.5 DDIM 25스텝), 데이터(질문 1과 같음), 바꾼 것(가이던스 1, 3, 5, 7.5, 12), 측정(CLIP 점수, 다양성), 아래에 17강에서 예상한 결과.', 'X2, 17강 7쪽.'),
+    18: ('질문 2 결과: 가이던스를 올리면 장면을 더 따른다.', '같은 프롬프트와 시드로 그린 가이던스 1, 3, 7.5, 12 그림.', 'X2.'),
     19: ('질문 2 결과: 대신 다양성이 줄어든다.', 'CLIP 점수와 시드 간 다양성 선 그래프 두 개.', 'X2.'),
-    20: ('질문 3 실험 설정(데이터): 강의 시나리오 42개.', '이 수업 「확산 모델 I」 강의를 바탕으로 한 시나리오 L06의 구성(직전 발화·현재 장·요청·정답 장면, 번역)과 30개/12개 구성.', 'eval/context_scenarios_lecture.json L06, eval/diffusion/x4_gold.json(생성 전 커밋 d1a4ce0).'),
-    21: ('질문 3 실험 설정(설계): A와 B는 강의 맥락만 다르다.', '같은 요청 → A(요청만)/B(+직전 90초·현재 장) → 정답 장면과의 CLIP 유사도 도식, 아래에 기획 LLM·이미지 모델·검정 세 칸.', 'X4 확장 42개(5-8).'),
-    22: ('질문 3 결과: 그림이 의도에 더 가까워졌다.', '+2.1(p=0.010)과 A·B 모두 그림이 있는 시나리오 28개의 B−A 막대.', 'X4 확장 42개(5-8).'),
-    23: ('질문 3 결과: 되묻기가 사라졌다.', '7 → 0 하나만 크게.', 'X4 기획 형태 분포(needs_clarification 7 → 0).'),
+    20: ('질문 3 실험 설정(데이터): 강의 시나리오 42개.', '이 수업 「확산 모델 I」 강의를 바탕으로 한 시나리오 L06의 구성(직전 발화, 현재 장, 요청, 정답 장면, 번역)과 30개/12개 구성.', 'eval/context_scenarios_lecture.json L06, eval/diffusion/x4_gold.json(생성 전 커밋 d1a4ce0).'),
+    21: ('질문 3 실험 설정(설계): A와 B는 강의 맥락만 다르다.', '같은 요청에서 A(요청만)와 B(직전 90초와 현재 장 추가)로 갈라져 정답 장면과의 CLIP 유사도로 가는 도식, 아래 표에 기획 LLM, 이미지 모델, 검정.', 'X4 확장 42개(5-8).'),
+    22: ('질문 3 결과: 그림이 의도에 더 가까워졌다.', '+2.1(p=0.010)과 A와 B 모두 그림이 있는 시나리오 28개의 B−A 막대.', 'X4 확장 42개(5-8).'),
+    23: ('질문 3 결과: 되묻기가 사라졌다.', '맥락 없음 7번과 맥락 있음 0번을 나란히 크게.', 'X4 기획 형태 분포(needs_clarification 7에서 0으로).'),
     24: ('아직 어려운 것.', '가짜 글자가 생긴 실제 그림, 약 9/34, 다음 단계.', 'X5, 글자 규칙(5-7, 5-9).'),
-    25: ('정리와 질문.', '파란 장에 결론 한 문장과 두 줄, Thank you · Questions?', '앞의 실험 전체.'),
+    25: ('정리와 질문.', '파란 장에 결론 한 문장과 두 줄, 아래에 Thank you. Any questions?', '앞의 실험 전체.'),
     26: ('부록: 기존 도구와의 차이.', 'ZeroPrep 비교표.', 'docs/qa-supplement-plan.md 2절.'),
     27: ('부록: 시스템 수치.', '감지 56/60 내역, 테스트 112개, 전체 흐름 시간표, 비용.', '감지 평가, pytest, 실제 API 점검, 로컬 E2E.'),
-    28: ('부록: 실험 측정 방법.', 'CLIP 점수, X1~X3·X4와 질문 번호 대응, 시간 측정 조건, X1, SD-Turbo 해석 주의, 77토큰 버그, 버린 지표.', '3장 실험 공통 원칙, 5장 실험별 상세.'),
+    28: ('부록: 실험 측정 방법.', 'CLIP 점수, X1~X3과 X4의 질문 번호 대응, 시간 측정 조건, X1, SD-Turbo 해석 주의, 77토큰 버그, 버린 지표.', '3장 실험 공통 원칙, 5장 실험별 상세.'),
 }
 
 
@@ -263,7 +263,7 @@ def slides_html(script):
   <div class="slide-body">
     <h4><span class="badge-n">{n}</span>{esc(s['title'])} <span class="pill">{s['t'] or "부록"}</span></h4>
     <dl class="kv"><dt>역할</dt><dd>{esc(role)}</dd><dt>화면</dt><dd>{esc(scr)}</dd><dt>근거</dt><dd>{esc(ev)}</dd></dl>
-    <details><summary>발표 대본 (영어 · 한국어)</summary>
+    <details><summary>발표 대본 (영어와 한국어)</summary>
       <p class="en" lang="en">{md_inline(s['en'])}</p><p class="ko">{md_inline(s['ko'])}</p></details>
   </div>
 </article>''')
@@ -297,7 +297,7 @@ SCENES = [
     ("P09", "A gardener trimming a wildly overgrown bush into a simple smooth rounded shape", "정규화"),
     ("P10", "A round pizza cut into five slices, one slice highlighted and set aside while the other four stay on the plate", "교차 검증"),
     ("P11", "A sculptor carving a block of stone while looking at a reference sketch of a cat pinned on the wall", "조건부 생성"),
-    ("P12", "Four archery targets side by side with arrows clustered tightly off-center, scattered around the center, scattered off-center, and tightly at the bull", "편향·분산"),
+    ("P12", "Four archery targets side by side with arrows clustered tightly off-center, scattered around the center, scattered off-center, and tightly at the bull", "편향과 분산"),
 ]
 
 
@@ -464,15 +464,15 @@ def build():
     x2b = line_chart("시드 간 다양성 (1 − 코사인, 높을수록 다양함)", [1, 3, 5, 7.5, 12],
                      [0.269, 0.209, 0.213, 0.182, 0.177], ymin=0.15, ymax=0.28, ytick=0.025, fmt="{:.3f}", series_cls="s-navy")
     x3 = hbar_chart("그림 1장 생성 시간 (중앙값, 낮을수록 좋음)", [
-        ("SD-Turbo · 1스텝", 0.51, "s-teal"), ("SD-Turbo · 2스텝", 0.68, "s-teal"),
-        ("SD-Turbo · 4스텝", 0.99, "s-teal"), ("SD 1.5 · DDIM 25스텝, CFG 7.5", 11.1, "s-gray")], vmax=12.5)
+        ("SD-Turbo 1스텝", 0.51, "s-teal"), ("SD-Turbo 2스텝", 0.68, "s-teal"),
+        ("SD-Turbo 4스텝", 0.99, "s-teal"), ("SD 1.5 DDIM 25스텝, CFG 7.5", 11.1, "s-gray")], vmax=12.5)
 
     body = f"""
 <header class="hero">
-  <div class="kicker">NextSlide · 생성형 AI 기말 프로젝트 해설서</div>
+  <div class="kicker">NextSlide 생성형 AI 기말 프로젝트 해설서</div>
   <h1>말로 요청하면 다음 슬라이드가 만들어지는 강의 도구<br>무엇을 만들었고, 어떤 실험을 어떻게 했는가</h1>
-  <p class="lead">강의 중 “다음 슬라이드에서는 …”이라고 말하면, 강사가 계속 말하는 동안 시스템이 다음 장을 만듭니다. 이 문서는 시스템의 구조, 수업 개념을 적용한 이미지 단계, 실험 하나하나의 질문·방법·결과·한계, 그리고 발표 PPT의 구성을 정리한 것입니다.</p>
-  <p class="meta">작성 2026-11-24 · 저장소 <code>nunu0404/GenAI-proj-2026</code> · 발표 파일 <code>docs/presentation/NextSlide_final.pptx</code> · 이 파일은 <code>docs/presentation/build_guide.py</code>로 만듭니다.</p>
+  <p class="lead">강의 중 “다음 슬라이드에서는 …”이라고 말하면, 강사가 계속 말하는 동안 시스템이 다음 장을 만듭니다. 이 문서는 시스템의 구조, 수업 개념을 적용한 이미지 단계, 실험 하나하나의 질문, 방법, 결과, 한계, 그리고 발표 PPT의 구성을 정리한 것입니다.</p>
+  <p class="meta">작성 2026-11-24, 저장소 <code>nunu0404/GenAI-proj-2026</code>, 발표 파일 <code>docs/presentation/NextSlide_final.pptx</code>, 이 파일은 <code>docs/presentation/build_guide.py</code>로 만듭니다.</p>
   <div class="note"><b>읽기 전에.</b> 이 문서의 수치는 모두 저장소에 기록된 실험 결과(<code>docs/diffusion-experiments.md</code>, <code>docs/results.md</code>, <code>eval/results/</code>)에서 옮겼습니다. 1회만 잰 값은 “n=1”로 표시했고, 측정하지 않은 것은 “미측정”으로 남겼습니다. 그림을 누르면 크게 볼 수 있습니다.</div>
 </header>
 
@@ -487,7 +487,7 @@ def build():
 <ul class="list">
   <li><b>만든 것</b>: 마이크 → 실시간 음성 인식 → 규칙 기반 요청 감지 → 맥락 고정 → 기획 LLM(엄격한 JSON) → 텍스트 먼저, 그림 다음 → 발표자가 확인하고 넘기면 청중 화면에 표시하는 웹 발표 시스템.</li>
   <li><b>새로운 점</b>: 사용자가 프롬프트를 쓰지 않습니다. <b>강의 자체(요청 + 직전 90초 발화 + 현재 장)</b>가 생성의 조건이 됩니다.</li>
-  <li><b>수업 개념 적용</b>: 이미지 단계를 공개 확산 모델(SD 1.5, SD-Turbo)로 바꾸고, 샘플러·스텝·CFG·증류를 하나씩 바꿔 비교했습니다. 확산 중간의 x̂₀를 화면에 보여 주는 기능도 만들었습니다.</li>
+  <li><b>수업 개념 적용</b>: 이미지 단계를 공개 확산 모델(SD 1.5, SD-Turbo)로 바꾸고, 샘플러, 스텝, CFG, 증류를 하나씩 바꿔 비교했습니다. 확산 중간의 x̂₀를 화면에 보여 주는 기능도 만들었습니다.</li>
   <li><b>확인한 것</b>: 맥락 조건은 효과가 있었고(p=0.010), 증류 모델은 실시간에 쓸 만큼 빨랐습니다. 반대로 맥락 효과가 글(+6.41)에서 그림(+2.10)으로 가며 줄어들어, <b>이미지 모델이 병목</b>이라는 점도 드러났습니다.</li>
   <li><b>남은 것</b>: 블라인드 사람 평가, 지연 반복 측정(n≥10), 그림 속 가짜 글자 문제.</li>
 </ul>
@@ -501,31 +501,31 @@ def build():
 <p>생성형 모델은 조건(프롬프트)에 따라 결과가 달라집니다. 대부분의 도구는 사용자가 조건을 직접 씁니다. NextSlide는 <b>강의 음성에서 조건을 자동으로 만듭니다</b>. 그래서 “그 등산객 비유 그려 줘”처럼 앞 내용을 가리키는 요청도 처리할 수 있습니다.</p>
 <div class="cond">
   <div class="chips">
-    <div class="chip main"><b>요청</b> · 음성에서 감지한 “다음 슬라이드에서는 …”</div>
-    <div class="chip"><b>최근 발화</b> · 요청 직전 90초(최대 1,500자), 요청 순간에 고정</div>
-    <div class="chip"><b>현재 장</b> · 제목과 핵심 문장 + 최근에 만든 장 최대 3개</div>
-    <div class="chip"><b>강의 정보</b> · 강의 제목, 청중</div>
+    <div class="chip main"><b>요청</b>: 음성에서 감지한 “다음 슬라이드에서는 …”</div>
+    <div class="chip"><b>최근 발화</b>: 요청 직전 90초(최대 1,500자), 요청 순간에 고정</div>
+    <div class="chip"><b>현재 장</b>: 제목과 핵심 문장 + 최근에 만든 장 최대 3개</div>
+    <div class="chip"><b>강의 정보</b>: 강의 제목, 청중</div>
   </div>
   <div class="to">→</div>
-  <div class="plan"><b>슬라이드 계획</b> (기획 LLM, JSON)<br>형태 · 제목 · 핵심 문장 2~3개 · 그림 묘사(영어) · 필요하면 “되묻기”</div>
+  <div class="plan"><b>슬라이드 계획</b> (기획 LLM, JSON)<br>형태, 제목, 핵심 문장 2~3개, 그림 묘사(영어), 필요하면 “되묻기”</div>
 </div>
 <p class="muted">이 조건 설계가 실제로 그림을 강사 의도에 가깝게 만드는지는 <a href="#x4">실험 X4</a>에서 검증했습니다.</p>
 
 <h3 id="usage">2-3. 사용 흐름</h3>
 <ol class="steps">
-  <li>세션(강의 제목·청중)을 만들고 발표자 화면과 청중 화면(두 번째 창 또는 프로젝터)을 엽니다.</li>
+  <li>세션(강의 제목, 청중)을 만들고 발표자 화면과 청중 화면(두 번째 창 또는 프로젝터)을 엽니다.</li>
   <li>마이크를 켜고 평소처럼 강의합니다. 일반 설명에는 아무것도 생기지 않습니다.</li>
   <li>“다음 슬라이드에서는 과적합을 시험 문제를 외운 학생에 비유해서 설명하겠습니다.”라고 말합니다.</li>
   <li>발표자 미리보기에 제목과 본문이 먼저 뜨고, 그림이 뒤따라옵니다. 로컬 확산 모델이면 그림이 흐릿한 상태에서 점점 선명해지는 과정이 보입니다.</li>
-  <li>발표자가 내용을 확인하고 <kbd>→</kbd>로 넘기면 청중 화면에 나타납니다. 필요하면 제목·본문을 고치거나 그림만 다시 만들 수 있습니다.</li>
+  <li>발표자가 내용을 확인하고 <kbd>→</kbd>로 넘기면 청중 화면에 나타납니다. 필요하면 제목, 본문을 고치거나 그림만 다시 만들 수 있습니다.</li>
 </ol>
-{figure("docs/images/real_slide_v1_presenter_text_ready.png", "발표자 화면: 왼쪽 현재 장, 오른쪽 다음 장 미리보기와 자막, 생성 요청 카드", "발표자 화면(실제 API, 11-05). 오른쪽 위 ‘다음 장 미리보기’에 제목·본문이 먼저 떴고 그림은 생성 중입니다. 아래에 음성 자막과 생성 요청 카드가 보입니다.")}
+{figure("docs/images/real_slide_v1_presenter_text_ready.png", "발표자 화면: 왼쪽 현재 장, 오른쪽 다음 장 미리보기와 자막, 생성 요청 카드", "발표자 화면(실제 API, 11-05). 오른쪽 위 ‘다음 장 미리보기’에 제목, 본문이 먼저 떴고 그림은 생성 중입니다. 아래에 음성 자막과 생성 요청 카드가 보입니다.")}
 
 <h3 id="pipeline">2-4. 시스템 구조</h3>
 <div class="flow">
   <div class="box"><b>마이크</b>브라우저 AudioWorklet, 16kHz PCM</div><span class="arrow">→</span>
   <div class="box"><b>음성 인식</b>Gemini 실시간 전사(한국어)</div><span class="arrow">→</span>
-  <div class="box"><b>요청 감지</b>규칙 기반, 부정·인용 제외</div><span class="arrow">→</span>
+  <div class="box"><b>요청 감지</b>규칙 기반, 부정, 인용 제외</div><span class="arrow">→</span>
   <div class="box"><b>맥락 고정</b>요청 + 90초 + 현재 장</div><span class="arrow">→</span>
   <div class="box"><b>기획 LLM</b>엄격한 JSON, 형태 선택</div><span class="arrow">→</span>
   <div class="box dark"><b>텍스트 → 그림</b>발표자 확인 후 청중에게</div>
@@ -535,16 +535,16 @@ def build():
 <tr><td>오디오</td><td>브라우저가 장치 샘플레이트(보통 48kHz)를 저역통과 필터 후 16kHz PCM16 100ms 단위로 보냅니다.</td><td>STT가 요구하는 형식. 서버가 형식을 검증하고 다르면 거부합니다.</td></tr>
 <tr><td>구간 나누기(VAD)</td><td>서버가 20ms마다 음량(RMS)을 보고, 250ms 이상 말소리가 이어지면 STT로 보내고, 700ms 침묵이면 구간을 닫습니다.</td><td>짧은 잡음은 보내지 않아 오인식과 비용을 줄입니다.</td></tr>
 <tr><td>음성 인식</td><td>Gemini <code>gemini-3.5-transcribe-live</code>(무료 등급), ko-KR. 10분마다 쉬는 구간에서 세션을 바꿉니다.</td><td>실시간 한국어 전사. 무료 등급은 사용자의 선택.</td></tr>
-<tr><td>요청 감지</td><td>“다음 슬라이드/장/페이지” 같은 트리거 + “설명하겠습니다” 같은 완료 표현(또는 2.5초 침묵)을 찾습니다. 부정(“만들지 마세요”)·인용(“…라고 말하면”)·장 넘김(“다음 장으로 넘어가”)은 제외합니다. 주제가 “그거”뿐이면 <b>입력 보완</b>으로 표시합니다.</td><td>발화마다 LLM을 부르면 느리고 비싸며, 잘못 생성되면 강의가 끊깁니다.</td></tr>
-<tr><td>맥락 고정</td><td>요청 순간의 직전 90초 발화·현재 장·최근 장을 작업에 저장합니다. 이후 발화는 섞이지 않습니다.</td><td>생성 중에도 강의는 계속되므로, 조건이 바뀌지 않게 합니다.</td></tr>
+<tr><td>요청 감지</td><td>“다음 슬라이드/장/페이지” 같은 트리거 + “설명하겠습니다” 같은 완료 표현(또는 2.5초 침묵)을 찾습니다. 부정(“만들지 마세요”), 인용(“…라고 말하면”), 장 넘김(“다음 장으로 넘어가”)은 제외합니다. 주제가 “그거”뿐이면 <b>입력 보완</b>으로 표시합니다.</td><td>발화마다 LLM을 부르면 느리고 비싸며, 잘못 생성되면 강의가 끊깁니다.</td></tr>
+<tr><td>맥락 고정</td><td>요청 순간의 직전 90초 발화, 현재 장, 최근 장을 작업에 저장합니다. 이후 발화는 섞이지 않습니다.</td><td>생성 중에도 강의는 계속되므로, 조건이 바뀌지 않게 합니다.</td></tr>
 <tr><td>대기열</td><td>세션마다 작업자 1개, 대기 최대 3개.</td><td>요청이 몰려도 순서대로 처리하고 넘치면 알립니다.</td></tr>
 <tr><td>기획</td><td>OpenAI <code>gpt-6-luna</code>가 JSON 스키마에 맞춰 슬라이드 계획을 돌려주면 서버가 검증합니다(제목 40자, 핵심 문장 2~3개). 실패하면 오류 내용을 붙여 1회만 다시 요청합니다.</td><td>생성된 HTML을 실행하지 않고, 정해진 부품으로만 그려 안전하고 일관됩니다.</td></tr>
-<tr><td>형태 선택</td><td>그림 · 수식(KaTeX) · 텍스트 · 좌우 비교 · 표 · 그래프. 그래프는 LLM이 함수와 범위만 정하고 좌표는 서버가 계산합니다.</td><td>이미지 모델은 글자·개수·관계를 자주 틀립니다(17강 31쪽). 숫자를 LLM이 지어내지 않게 합니다.</td></tr>
-<tr><td>텍스트 먼저</td><td>기획이 끝나면 제목·본문을 발표자 미리보기에 먼저 보여 주고, 원하면 그림을 기다리지 않고 넘길 수 있습니다. 그림은 도착하면 서서히 나타납니다.</td><td>가장 느린 단계가 그림이라서.</td></tr>
-<tr><td>그림</td><td>OpenAI <code>gpt-image-2</code>(1536×864, low) 또는 <b>로컬 확산 모델</b>(SD-Turbo 2스텝 기본 / SD 1.5). 프롬프트는 장면 묘사 + 짧은 화풍이고 77토큰에 맞춥니다. 받은 이미지는 형식·크기·비율을 검사합니다.</td><td>환경변수 하나(<code>IMAGE_PROVIDER</code>)로 바꿀 수 있습니다.</td></tr>
+<tr><td>형태 선택</td><td>그림, 수식(KaTeX), 텍스트, 좌우 비교, 표, 그래프. 그래프는 LLM이 함수와 범위만 정하고 좌표는 서버가 계산합니다.</td><td>이미지 모델은 글자, 개수, 관계를 자주 틀립니다(17강 31쪽). 숫자를 LLM이 지어내지 않게 합니다.</td></tr>
+<tr><td>텍스트 먼저</td><td>기획이 끝나면 제목, 본문을 발표자 미리보기에 먼저 보여 주고, 원하면 그림을 기다리지 않고 넘길 수 있습니다. 그림은 도착하면 서서히 나타납니다.</td><td>가장 느린 단계가 그림이라서.</td></tr>
+<tr><td>그림</td><td>OpenAI <code>gpt-image-2</code>(1536×864, low) 또는 <b>로컬 확산 모델</b>(SD-Turbo 2스텝 기본 / SD 1.5). 프롬프트는 장면 묘사 + 짧은 화풍이고 77토큰에 맞춥니다. 받은 이미지는 형식, 크기, 비율을 검사합니다.</td><td>환경변수 하나(<code>IMAGE_PROVIDER</code>)로 바꿀 수 있습니다.</td></tr>
 <tr><td>디노이징 미리보기</td><td>로컬 모델이 그림을 만드는 동안 매 스텝의 x̂₀ 미리보기를 <code>slide.preview</code> 이벤트로 보냅니다.</td><td>기다리는 시간을 ‘확산 과정 보여 주기’로 바꿉니다.</td></tr>
-<tr><td>공개</td><td>준비 완료된 장만 넘길 수 있고 청중에게 전송됩니다. 취소되었거나 시도 번호가 다른 늦은 결과는 버립니다.</td><td>미완성·잘못된 장의 노출을 막습니다.</td></tr>
-<tr><td>저장</td><td>SQLite(세션, 확정 발화, 슬라이드, 작업, 사용량·비용 기록). 새로고침해도 세션이 복원됩니다.</td><td>원시 음성은 저장하지 않습니다.</td></tr>
+<tr><td>공개</td><td>준비 완료된 장만 넘길 수 있고 청중에게 전송됩니다. 취소되었거나 시도 번호가 다른 늦은 결과는 버립니다.</td><td>미완성, 잘못된 장의 노출을 막습니다.</td></tr>
+<tr><td>저장</td><td>SQLite(세션, 확정 발화, 슬라이드, 작업, 사용량, 비용 기록). 새로고침해도 세션이 복원됩니다.</td><td>원시 음성은 저장하지 않습니다.</td></tr>
 </tbody></table></div>
 
 <h3 id="forms">2-5. 슬라이드 형태 (실제 API로 생성한 화면)</h3>
@@ -559,8 +559,8 @@ def build():
 
 <h3 id="choices">2-6. 설계 선택과 근거</h3>
 <div class="tbl"><table><thead><tr><th>선택</th><th>이유</th><th>뒷받침</th></tr></thead><tbody>
-<tr><td>요청 감지는 규칙으로</td><td>비용·지연·오작동</td><td>감지 평가 56/60, 놓친 요청 0 (<a href="#detect">5-1</a>)</td></tr>
-<tr><td>글자·수식·표·그래프는 이미지 모델에 맡기지 않음</td><td>17강 31쪽: 그럴듯한 그림도 글자·개수·관계를 놓침</td><td>X3·X5에서 SD-Turbo의 가짜 글자 확인 (<a href="#x5">5-7</a>)</td></tr>
+<tr><td>요청 감지는 규칙으로</td><td>비용, 지연, 오작동</td><td>감지 평가 56/60, 놓친 요청 0 (<a href="#detect">5-1</a>)</td></tr>
+<tr><td>글자, 수식, 표, 그래프는 이미지 모델에 맡기지 않음</td><td>17강 31쪽: 그럴듯한 그림도 글자, 개수, 관계를 놓침</td><td>X3, X5에서 SD-Turbo의 가짜 글자 확인 (<a href="#x5">5-7</a>)</td></tr>
 <tr><td>그래프 좌표는 서버 계산</td><td>LLM이 숫자를 지어내지 않게</td><td>11-05 실제 API 점검 H③</td></tr>
 <tr><td>발표자 확인 후 공개</td><td>틀린 장이 바로 청중에게 보이지 않게</td><td>ZeroPrep(즉시 표시)과의 차이</td></tr>
 <tr><td>텍스트 먼저, 그림 다음</td><td>그림이 가장 느린 단계</td><td>gpt-image-2 경로에서 그림이 시간의 약 70~80% (<a href="#api">5-2</a>)</td></tr>
@@ -571,9 +571,9 @@ def build():
 <div class="tbl"><table><tbody>
 <tr><th>프런트엔드</th><td>React 18 + TypeScript + Vite, KaTeX. 발표자 화면, 청중 화면, 전체 화면 발표 모드(<kbd>M</kbd> 마이크, <kbd>→</kbd> 다음 장)</td></tr>
 <tr><th>백엔드</th><td>FastAPI(단일 프로세스), WebSocket(역할별로 걸러서 전송), SQLite, Pydantic 검증</td></tr>
-<tr><th>외부 모델</th><td>STT: Gemini <code>gemini-3.5-transcribe-live</code>(무료 등급) · 기획: OpenAI <code>gpt-6-luna</code> · 그림: OpenAI <code>gpt-image-2</code>(선택)</td></tr>
-<tr><th>로컬 모델</th><td><code>stabilityai/sd-turbo</code>, <code>stable-diffusion-v1-5</code> · diffusers 0.43, PyTorch 2.15(MPS) · Apple M5, 메모리 16GB</td></tr>
-<tr><th>테스트</th><td>pytest 112개(mock 제공자, 실제 API 호출 없음) · 프런트엔드 타입 검사·빌드 · 헤드리스 Chrome E2E</td></tr>
+<tr><th>외부 모델</th><td>STT: Gemini <code>gemini-3.5-transcribe-live</code>(무료 등급), 기획: OpenAI <code>gpt-6-luna</code>, 그림: OpenAI <code>gpt-image-2</code>(선택)</td></tr>
+<tr><th>로컬 모델</th><td><code>stabilityai/sd-turbo</code>, <code>stable-diffusion-v1-5</code>, diffusers 0.43, PyTorch 2.15(MPS), Apple M5, 메모리 16GB</td></tr>
+<tr><th>테스트</th><td>pytest 112개(mock 제공자, 실제 API 호출 없음), 프런트엔드 타입 검사, 빌드, 헤드리스 Chrome E2E</td></tr>
 <tr><th>보안</th><td>API 키는 서버 환경변수에만 있고 브라우저로 보내지 않습니다(테스트로 확인). 서버는 127.0.0.1에만 엽니다.</td></tr>
 </tbody></table></div>
 
@@ -596,14 +596,14 @@ def build():
 <h3 id="metrics">3-1. 지표</h3>
 <dl class="kv" style="grid-template-columns:120px minmax(0,1fr)">
   <dt>CLIP 유사도</dt><dd>그림과 문장을 CLIP으로 같은 공간의 벡터로 바꾼 뒤 코사인 유사도 × 100. 높을수록 그림이 문장 내용과 맞습니다. 생성 모델이 쓰는 텍스트 인코더(SD 1.5: ViT-L/14, SD-Turbo: OpenCLIP ViT-H)와 <b>다른</b> <code>openai/clip-vit-base-patch32</code>로 채점해 ‘자기 채점’ 편향을 줄였습니다. 보통 20~35 사이 값이 나오며, 절대값보다 조건 간 차이를 봅니다.</dd>
-  <dt>다양성</dt><dd>같은 장면·조건에서 시드 0과 1로 만든 두 그림의 이미지 임베딩 거리(1 − 코사인). 클수록 서로 다른 그림이 나옵니다.</dd>
+  <dt>다양성</dt><dd>같은 장면, 조건에서 시드 0과 1로 만든 두 그림의 이미지 임베딩 거리(1 − 코사인). 클수록 서로 다른 그림이 나옵니다.</dd>
   <dt>95% 신뢰구간</dt><dd>장면(또는 시나리오)을 복원 추출하는 부트스트랩 2,000회로 구합니다. 두 조건의 구간이 많이 겹치면 차이를 확신할 수 없습니다.</dd>
   <dt>순열 검정 p값</dt><dd>X4에서 사용. 시나리오별 차이(B−A)의 부호를 무작위로 뒤집는 것을 20,000회 반복해, “맥락이 아무 효과가 없다면 이만한 평균 차이가 우연히 나올 확률”을 계산합니다(양측). 0.05보다 작으면 우연으로 보기 어렵다고 판단합니다.</dd>
   <dt>시간</dt><dd>GPU 동기화 후 단조 시계로 잽니다. 첫 호출(워밍업)은 제외하고 중앙값을 씁니다.</dd>
 </dl>
 <h3 id="setup">3-2. 환경과 장면 세트</h3>
 <p>Apple M5(메모리 16GB), MPS, PyTorch 2.15, diffusers 0.43. 해상도 768×432(16:9, 잠재 공간 96×54). 모든 확산 실험은 로컬에서 돌아 API 비용이 0입니다.</p>
-<details><summary>X1~X3·X5에 쓴 장면 12개 보기</summary>{scenes_table()}
+<details><summary>X1~X3, X5에 쓴 장면 12개 보기</summary>{scenes_table()}
 <p class="meta">출처: <code>eval/diffusion/prompts.json</code>. 개발자가 직접 썼고(기획 LLM 출력 아님), 글자 없이 그릴 수 있는 강의 비유 장면만 담았습니다. 프롬프트는 시스템과 같은 방식(장면 + 짧은 화풍, CFG&gt;1이면 “글자 금지” negative prompt)으로 만듭니다.</p></details>
 <h3 id="glossary">3-3. 용어 풀이</h3>
 <dl class="kv" style="grid-template-columns:150px minmax(0,1fr)">
@@ -622,7 +622,7 @@ def build():
 <tr><td><a href="#detect">감지 평가</a></td><td>규칙 감지기가 요청만 골라내는가</td><td>—</td><td>발화 60개</td><td><span class="tag ok">성공</span>56/60, 놓친 요청 0, 잘못 생성 1</td><td>0</td></tr>
 <tr><td><a href="#api">실제 API 점검</a></td><td>실제 서비스로 끝까지 도는가</td><td>—</td><td>단계별 1회</td><td><span class="tag ok">동작</span>그림이 지연의 대부분</td><td>약 2센트</td></tr>
 <tr><td><a href="#speed">속도 기준선</a></td><td>로컬 모델은 얼마나 빠른가</td><td>모델, 스텝, slicing</td><td>설정별 2~3회</td><td>Turbo 0.5~1초, SD 1.5 5~26초</td><td>0</td></tr>
-<tr><td><a href="#x1">X1</a></td><td>샘플러·스텝이 품질을 바꾸나</td><td>DDPM/DDIM × 50/25/10</td><td>12장면 × 2시드</td><td><span class="tag no">CLIP 차이 없음</span>눈으로는 DDPM 10스텝이 깨짐</td><td>0</td></tr>
+<tr><td><a href="#x1">X1</a></td><td>샘플러, 스텝이 품질을 바꾸나</td><td>DDPM/DDIM × 50/25/10</td><td>12장면 × 2시드</td><td><span class="tag no">CLIP 차이 없음</span>눈으로는 DDPM 10스텝이 깨짐</td><td>0</td></tr>
 <tr><td><a href="#x2">X2</a></td><td>CFG를 키우면?</td><td>CFG 1/3/5/7.5/12</td><td>12 × 2</td><td>일치도 오르다 5 근처에서 정체, 다양성 하락</td><td>0</td></tr>
 <tr><td><a href="#x3">X3</a></td><td>증류 모델이 실시간에 맞나</td><td>SD-Turbo 1/2/4 대 SD 1.5</td><td>12 × 2</td><td><span class="tag ok">채택</span>약 16배 빠르고 CLIP도 높음</td><td>0</td></tr>
 <tr><td><a href="#x5">X5</a></td><td>약한 CFG로 가짜 글자가 줄까</td><td>Turbo CFG 0/1.5/2/3</td><td>12 × 2</td><td><span class="tag no">효과 없음</span></td><td>0</td></tr>
@@ -636,7 +636,7 @@ def build():
 <h2 id="details">5. 실험별 상세</h2>
 
 <section class="card" id="detect">
-<h3>5-1. 요청 감지 정확도 <span class="tag">규칙 기반 · API 미사용</span></h3>
+<h3>5-1. 요청 감지 정확도 <span class="tag">규칙 기반, API 미사용</span></h3>
 <dl class="kv"><dt>질문</dt><dd>일반 설명은 무시하고, 실제 요청만 골라내는가? 애매하면 되묻는가?</dd>
 <dt>방법</dt><dd><code>eval/detection_cases.jsonl</code>의 발화 60개를 확정 음성 인식 구간처럼 0.8초 간격으로 넣고 2.6초 침묵시킵니다. 정답은 3분류: 생성(request 25) / 입력 보완(needs_input 8) / 무시(none 27). 결정적이라 몇 번 돌려도 결과가 같습니다(2026-11-24 재실행 결과도 동일).</dd></dl>
 <div class="tbl"><table><thead><tr><th>범주</th><th>뜻</th><th class="num">정답</th></tr></thead><tbody>
@@ -647,7 +647,7 @@ def build():
 <tr><td>quoted</td><td>인용된 지시(“…라고 말하면”)</td><td class="num">3/4</td></tr>
 <tr><td>ambiguous</td><td>모호한 지시(“그거 설명할게요”)</td><td class="num">4/5</td></tr>
 <tr><td>truncated</td><td>중간에 끊긴 지시</td><td class="num">4/4</td></tr>
-<tr><td>added / added_negative</td><td>나중에 추가한 구어 표현(생성 / 비생성)</td><td class="num">7/7 · 9/9</td></tr>
+<tr><td>added / added_negative</td><td>나중에 추가한 구어 표현(생성 / 비생성)</td><td class="num">7/7, 9/9</td></tr>
 <tr><td>real_user</td><td>실제 사용 중 나온 전사</td><td class="num">4/4</td></tr>
 </tbody></table></div>
 <p><b>결과</b>: 56/60(93.3%). 요청을 놓친 경우 0건, 생성하면 안 되는데 생성한 경우 1건(“그거, 아까 그 예시 설명할게요.” → ‘예시’를 주제로 인정). 나머지 3건은 생성하지 않을 발화를 ‘입력 보완’으로 잘못 띄운 경우라 슬라이드는 생기지 않지만 불필요한 카드가 뜹니다.</p>
@@ -665,10 +665,10 @@ def build():
 <tr><td>그림 <code>gpt-image-2</code> low 1536×864</td><td>13.9초, 약 $0.0043, 글자 없음(눈으로 확인)</td></tr>
 <tr><td>전체 흐름 (텍스트 입력)</td><td>요청 확정 → 텍스트 5.7초 → 그림 14.3초 → <b>완성 20.0초</b></td></tr>
 <tr><td>전체 흐름 (실제 마이크)</td><td>발화 종료(VAD 추정) → 확정 자막 0.42초, 기획 4.3초, 그림 18.6초, <b>완성 23.4초</b></td></tr>
-<tr><td>형태 선택 (G·H)</td><td>“수식으로” → 수식형, 형태 지정 없음 → 모델이 수식형 선택, “비유해서” → 그림형, “비교해서” → 비교형, “표로” → 표, “그래프로” → 함수 그래프. 재요청 0회</td></tr>
+<tr><td>형태 선택 (G, H)</td><td>“수식으로” → 수식형, 형태 지정 없음 → 모델이 수식형 선택, “비유해서” → 그림형, “비교해서” → 비교형, “표로” → 표, “그래프로” → 함수 그래프. 재요청 0회</td></tr>
 </tbody></table></div>
 <p><b>해석</b>: 그림이 전체 시간의 70~80%를 차지했습니다. 이 결과가 ① 텍스트를 먼저 보여 주는 구조와 ② 이미지 단계를 로컬 확산 모델로 바꾸는 실험(X1~X5)의 출발점입니다.</p>
-<p><b>한계</b>: 모두 1회 측정이라 네트워크·서버 상태에 따른 변동을 모릅니다. 반복 측정 도구(<code>eval/latency_probe.py -n</code>)는 있지만 실행하지 않았습니다.</p>
+<p><b>한계</b>: 모두 1회 측정이라 네트워크, 서버 상태에 따른 변동을 모릅니다. 반복 측정 도구(<code>eval/latency_probe.py -n</code>)는 있지만 실행하지 않았습니다.</p>
 </section>
 
 <section class="card" id="speed">
@@ -686,7 +686,7 @@ def build():
 </section>
 
 <section class="card" id="x1">
-<h3>5-4. X1 · 샘플러와 스텝 수 <span class="tag">SD 1.5, CFG 7.5</span></h3>
+<h3>5-4. X1: 샘플러와 스텝 수 <span class="tag">SD 1.5, CFG 7.5</span></h3>
 <dl class="kv"><dt>질문</dt><dd>DDPM과 DDIM, 스텝 50/25/10이 장면 일치도와 시간을 어떻게 바꾸는가?</dd>
 <dt>방법</dt><dd>12장면 × 시드 2 × 6조건 = 144장. <code>run_sweep.py --name x1_sampler --model sd15 --schedulers ddpm ddim --steps 50 25 10 --cfg 7.5</code></dd></dl>
 <div class="tbl"><table><thead><tr><th>샘플러</th><th class="num">스텝</th><th class="num">CLIP (95% CI)</th><th class="num">다양성</th><th class="num">시간</th></tr></thead><tbody>
@@ -697,7 +697,7 @@ def build():
 <tr><td>DDIM</td><td class="num">25</td><td class="num">25.0 (23.0–26.9)</td><td class="num">0.182</td><td class="num">11.1초</td></tr>
 <tr><td>DDIM</td><td class="num">10</td><td class="num">25.1 (23.7–26.7)</td><td class="num">0.159</td><td class="num">4.7초</td></tr>
 </tbody></table></div>
-{figure("docs/images/diffusion_x1_sampler.jpg", "X1 샘플러·스텝 비교 그림", "같은 장면·시드에서 샘플러와 스텝만 바꾼 결과")}
+{figure("docs/images/diffusion_x1_sampler.jpg", "X1 샘플러, 스텝 비교 그림", "같은 장면, 시드에서 샘플러와 스텝만 바꾼 결과")}
 <ul class="list"><li><b>시간은 스텝 수에 거의 비례</b>합니다. 같은 U-Net을 덜 부를 뿐 모델이 작아지는 것은 아닙니다.</li>
 <li><b>CLIP으로는 조건 간 차이가 없었습니다.</b> 신뢰구간이 모두 겹칩니다.</li>
 <li><b>눈으로 보면 차이가 큽니다.</b> DDPM 10스텝은 형체가 뭉개졌고(P06 고양이가 거의 사라짐, P07 인물이 흐림), DDIM 10스텝은 형태를 유지했습니다. “DDIM은 적은 스텝에서도 쓸 만하다”는 강의 내용과 같습니다.</li></ul>
@@ -705,13 +705,13 @@ def build():
 </section>
 
 <section class="card" id="x2">
-<h3>5-5. X2 · CFG 스케일 <span class="tag">SD 1.5, DDIM 25스텝</span></h3>
+<h3>5-5. X2: CFG 스케일 <span class="tag">SD 1.5, DDIM 25스텝</span></h3>
 <dl class="kv"><dt>질문</dt><dd>가이던스를 키우면 장면 일치도와 다양성이 어떻게 바뀌는가? (17강 7쪽: 조건은 잘 따르지만 다양성이 줄 수 있다)</dd>
 <dt>방법</dt><dd>CFG 1 / 3 / 5 / 7.5 / 12, 12장면 × 시드 2. CFG&gt;1일 때 “글자 금지” negative prompt.</dd></dl>
 <div class="grid2"><div class="chartbox">{x2a}</div><div class="chartbox">{x2b}</div></div>
 <p class="meta">세로 막대는 95% 신뢰구간. 점에 마우스를 올리면 값이 보입니다. 시간: CFG 1은 6.5초, 3~12는 약 11.3초.</p>
-{figure("docs/images/diffusion_x2_cfg.jpg", "X2 CFG 스케일 비교 그림", "P02·P09 장면, 시드 0·1에서 CFG만 바꾼 결과")}
-<ul class="list"><li><b>CFG를 올리면 일치도가 21.5에서 25.7까지 오르다가 5 근처에서 멈춥니다.</b> 1과 5의 구간은 겹치지 않고, 5·7.5·12 사이는 구분되지 않습니다.</li>
+{figure("docs/images/diffusion_x2_cfg.jpg", "X2 CFG 스케일 비교 그림", "P02, P09 장면, 시드 0, 1에서 CFG만 바꾼 결과")}
+<ul class="list"><li><b>CFG를 올리면 일치도가 21.5에서 25.7까지 오르다가 5 근처에서 멈춥니다.</b> 1과 5의 구간은 겹치지 않고, 5, 7.5, 12 사이는 구분되지 않습니다.</li>
 <li><b>다양성은 계속 떨어집니다</b>(0.27 → 0.18). 강의에서 배운 트레이드오프와 같은 방향입니다.</li>
 <li>눈으로 보면 CFG 1은 장면이 거의 형성되지 않고, 7.5~12에서 또렷해지며, 12에서는 색이 진해지고 단순해집니다.</li>
 <li>CFG 1이 빠른 이유: diffusers는 1 이하에서 조건 없는 예측을 건너뜁니다.</li>
@@ -719,17 +719,17 @@ def build():
 </section>
 
 <section class="card" id="x3">
-<h3>5-6. X3 · 증류 모델 SD-Turbo 대 SD 1.5</h3>
+<h3>5-6. X3: 증류 모델 SD-Turbo 대 SD 1.5</h3>
 <dl class="kv"><dt>질문</dt><dd>1~4스텝으로 증류된 모델이 실시간 강의에 맞는가? 품질 손해는 없는가?</dd>
-<dt>방법</dt><dd>SD-Turbo 1/2/4스텝(CFG 0)과 X1의 SD 1.5 DDIM 25스텝(CFG 7.5)을 같은 장면·시드로 비교.</dd></dl>
+<dt>방법</dt><dd>SD-Turbo 1/2/4스텝(CFG 0)과 X1의 SD 1.5 DDIM 25스텝(CFG 7.5)을 같은 장면, 시드로 비교.</dd></dl>
 <div class="chartbox">{x3}</div>
-<div class="tbl"><table><thead><tr><th>모델·설정</th><th class="num">CLIP (95% CI)</th><th class="num">다양성</th><th class="num">시간</th></tr></thead><tbody>
+<div class="tbl"><table><thead><tr><th>모델과 설정</th><th class="num">CLIP (95% CI)</th><th class="num">다양성</th><th class="num">시간</th></tr></thead><tbody>
 <tr><td>SD-Turbo 1스텝</td><td class="num">29.2 (27.0–31.3)</td><td class="num">0.129</td><td class="num">0.51초</td></tr>
 <tr><td>SD-Turbo 2스텝 (시스템 기본값)</td><td class="num">28.2 (26.3–29.9)</td><td class="num">0.136</td><td class="num">0.68초</td></tr>
 <tr><td>SD-Turbo 4스텝</td><td class="num">28.2 (25.9–30.4)</td><td class="num">0.145</td><td class="num">0.99초</td></tr>
 <tr><td>SD 1.5 DDIM 25스텝, CFG 7.5</td><td class="num">25.0 (23.0–26.9)</td><td class="num">0.182</td><td class="num">11.1초</td></tr>
 </tbody></table></div>
-{figure("docs/images/diffusion_x3_turbo.jpg", "X3 SD-Turbo와 SD 1.5 비교 그림", "P01·P06·P07: SD-Turbo 1스텝, 4스텝, SD 1.5 DDIM 25스텝")}
+{figure("docs/images/diffusion_x3_turbo.jpg", "X3 SD-Turbo와 SD 1.5 비교 그림", "P01, P06, P07: SD-Turbo 1스텝, 4스텝, SD 1.5 DDIM 25스텝")}
 <ul class="list"><li><b>SD-Turbo는 약 16~20배 빠르면서 장면 일치도도 높았습니다.</b> SD-Turbo 1스텝과 SD 1.5의 구간은 거의 겹치지 않습니다. 눈으로 봐도 장면 요소를 더 많이 담습니다.</li>
 <li><b>주의</b>: SD-Turbo는 SD 2.1 기반이고 텍스트 인코더도 더 큽니다(OpenCLIP ViT-H). 그래서 이 차이를 증류 효과만으로 볼 수는 없습니다.</li>
 <li><b>약점</b>: 가짜 글자(P01 4스텝의 종이에 의미 없는 글자). CFG를 쓰지 않아 negative prompt가 들어갈 자리가 없습니다 → X5로 이어짐.</li>
@@ -738,9 +738,9 @@ def build():
 </section>
 
 <section class="card" id="x5">
-<h3>5-7. X5 · SD-Turbo에 약한 CFG를 켜면 가짜 글자가 줄어드는가 <span class="tag no">효과 없음</span></h3>
+<h3>5-7. X5: SD-Turbo에 약한 CFG를 켜면 가짜 글자가 줄어드는가 <span class="tag no">효과 없음</span></h3>
 <dl class="kv"><dt>질문</dt><dd>CFG를 조금 켜서 negative prompt(“글자 금지”)가 작동하게 하면 가짜 글자가 줄까?</dd>
-<dt>방법</dt><dd>SD-Turbo 2·4스텝 × CFG 0 / 1.5 / 2 / 3, 12장면 × 시드 2. 시드 0의 12장면을 CFG 0 / 1.5 / 2로 나란히 놓고 눈으로 확인(블라인드 평가 아님).</dd></dl>
+<dt>방법</dt><dd>SD-Turbo 2, 4스텝 × CFG 0 / 1.5 / 2 / 3, 12장면 × 시드 2. 시드 0의 12장면을 CFG 0 / 1.5 / 2로 나란히 놓고 눈으로 확인(블라인드 평가 아님).</dd></dl>
 <div class="tbl"><table><thead><tr><th class="num">스텝</th><th class="num">CFG</th><th class="num">CLIP (95% CI)</th><th class="num">시간</th></tr></thead><tbody>
 <tr><td class="num">2</td><td class="num">0</td><td class="num">28.2 (26.3–29.9)</td><td class="num">0.63초</td></tr>
 <tr><td class="num">2</td><td class="num">1.5</td><td class="num">28.2 (26.0–30.3)</td><td class="num">0.83초</td></tr>
@@ -752,7 +752,7 @@ def build():
 <tr><td class="num">4</td><td class="num">3</td><td class="num">27.0 (24.7–29.1)</td><td class="num">1.39초</td></tr>
 </tbody></table></div>
 {figure("docs/images/diffusion_x5_turbo_cfg_a.jpg", "X5 SD-Turbo CFG 비교 그림", "시드 0, CFG 0 / 1.5 / 2 비교(일부 장면)")}
-<ul class="list"><li>글줄 모양의 가짜 글자는 P01(시험지 더미)과 P08(답안지) 두 장면에서 <b>세 조건 모두</b> 똑같이 나타났습니다. 장면이 종이·문서를 요구하니 모델이 그 위에 글줄을 그립니다.</li>
+<ul class="list"><li>글줄 모양의 가짜 글자는 P01(시험지 더미)과 P08(답안지) 두 장면에서 <b>세 조건 모두</b> 똑같이 나타났습니다. 장면이 종이, 문서를 요구하니 모델이 그 위에 글줄을 그립니다.</li>
 <li>CFG를 켜면 시간이 1.3~1.4배 늘고, CFG 3에서는 색이 과하게 진해졌습니다(17강 30쪽 “가이던스가 지나치면 과포화”).</li></ul>
 <h4>실패한 자동 지표: CLIP으로 “글자 섞임” 판정</h4>
 <p>“글자가 쓰인 그림” 대 “글자 없는 그림”의 CLIP 확률로 가짜 글자를 자동 판정하려 했습니다. 확률 상위 6장을 직접 보니 실제 글자 모양은 1장(P01)뿐이었고, 진하고 장식적인 그림체에 반응하는 것으로 보였습니다. <b>이 지표는 쓰지 않기로 했습니다.</b> 글자 섞임은 사람이 판정해야 합니다.</p>
@@ -760,18 +760,18 @@ def build():
 </section>
 
 <section class="card" id="x4">
-<h3>5-8. X4 · 강의 맥락 조건의 효과 <span class="tag ok">핵심 실험</span></h3>
+<h3>5-8. X4: 강의 맥락 조건의 효과 <span class="tag ok">핵심 실험</span></h3>
 <dl class="kv"><dt>질문</dt><dd>요청에 강의 맥락(최근 발화 + 현재 장)을 붙이면, 그림이 강사가 의도한 장면에 더 가까워지는가?</dd></dl>
 <h4>설계</h4>
 <div class="tbl"><table><thead><tr><th></th><th>A: 요청만</th><th>B: 요청 + 맥락</th></tr></thead><tbody>
-<tr><td>기획 LLM 입력</td><td>요청 문장 + 강의 제목·청중</td><td>A + 최근 발화 3문장 + 현재 장(제목·핵심 문장)</td></tr>
-<tr><td>고정한 것</td><td colspan="2">기획 LLM(<code>gpt-6-luna</code>, 같은 시스템 프롬프트), 이미지 모델(SD-Turbo 2스텝, CFG 0), 시드 0·1, 해상도</td></tr>
+<tr><td>기획 LLM 입력</td><td>요청 문장 + 강의 제목, 청중</td><td>A + 최근 발화 3문장 + 현재 장(제목, 핵심 문장)</td></tr>
+<tr><td>고정한 것</td><td colspan="2">기획 LLM(<code>gpt-6-luna</code>, 같은 시스템 프롬프트), 이미지 모델(SD-Turbo 2스텝, CFG 0), 시드 0, 1, 해상도</td></tr>
 <tr><td>채점</td><td colspan="2">시나리오마다 미리 적어 둔 “강사가 의도한 그림” 영어 한 문장(정답 장면)과 그림의 CLIP 유사도(시드 2개 평균). 같은 방식으로 기획 LLM이 쓴 그림 묘사(글)와 정답 장면의 유사도도 계산</td></tr>
-<tr><td>검정</td><td colspan="2">A·B 모두 그림이 나온 시나리오끼리 짝 비교, 순열 검정(20,000회)과 부트스트랩 95% CI</td></tr>
+<tr><td>검정</td><td colspan="2">A, B 모두 그림이 나온 시나리오끼리 짝 비교, 순열 검정(20,000회)과 부트스트랩 95% CI</td></tr>
 </tbody></table></div>
 <div class="grid2">
-<div class="scen"><b>S09</b> · 한국사 · 중학생<br>발화: “조선의 과거 시험은 관리를 뽑는 시험이었습니다. … 선비는 며칠을 걸어서 한양에 도착했습니다.”<br>현재 장: 과거 시험 보러 가는 길<br><span class="q">요청: “다음 슬라이드에서는 시험장 풍경을 보여주세요.”</span><br><span class="muted">정답 장면: a crowded Joseon dynasty civil service examination ground with scholars in traditional robes writing at mats</span></div>
-<div class="scen"><b>L06</b> · 생성형 AI: 확산 모델 I · 대학 3학년<br>발화: “… 잉크 한 방울을 물에 떨어뜨리면 점점 퍼져서 결국 균일해지는 것과 같다고 했습니다.”<br>현재 장: 순방향: 잡음 더하기<br><span class="q">요청: “다음 슬라이드에서는 역방향 과정을 같은 비유로 보여주세요.”</span><br><span class="muted">정답 장면: a glass of water where spread-out ink gradually gathers back into a single drop, shown as a reversed sequence</span></div>
+<div class="scen"><b>S09</b>: 한국사, 중학생<br>발화: “조선의 과거 시험은 관리를 뽑는 시험이었습니다. … 선비는 며칠을 걸어서 한양에 도착했습니다.”<br>현재 장: 과거 시험 보러 가는 길<br><span class="q">요청: “다음 슬라이드에서는 시험장 풍경을 보여주세요.”</span><br><span class="muted">정답 장면: a crowded Joseon dynasty civil service examination ground with scholars in traditional robes writing at mats</span></div>
+<div class="scen"><b>L06</b>: 생성형 AI: 확산 모델 I, 대학 3학년<br>발화: “… 잉크 한 방울을 물에 떨어뜨리면 점점 퍼져서 결국 균일해지는 것과 같다고 했습니다.”<br>현재 장: 순방향: 잡음 더하기<br><span class="q">요청: “다음 슬라이드에서는 역방향 과정을 같은 비유로 보여주세요.”</span><br><span class="muted">정답 장면: a glass of water where spread-out ink gradually gathers back into a single drop, shown as a reversed sequence</span></div>
 </div>
 <p class="meta">요청만 보면 S09는 “어느 시대의 시험장”인지, L06은 “같은 비유”가 무엇인지 알 수 없습니다. 이런 지시어 요청에서 맥락이 필요합니다.</p>
 
@@ -779,21 +779,21 @@ def build():
 <p>일반 과목 시나리오 12개(<code>eval/context_scenarios.json</code>)로 먼저 돌렸습니다. 그림 B−A 평균 +1.07(95% CI −0.33~+2.78), B 우세 5/7. <b>방향은 맥락 쪽이었지만 짝이 7개뿐이라 확실하지 않았습니다.</b> 맥락이 없으면 2개 시나리오에서 되물었습니다. 그래서 표본을 늘렸습니다.</p>
 
 <h4>확장 (시나리오 42개)</h4>
-<ul class="list"><li>이 수업 강의자료(12강 VAE, 17강 DDIM·CFG·잠재 확산, 목차의 GAN·DiT·플로 매칭·ControlNet·LoRA·비디오·평가)로 시나리오 30개(L01~L30)를 추가했습니다(<code>eval/context_scenarios_lecture.json</code>).</li>
+<ul class="list"><li>이 수업 강의자료(12강 VAE, 17강 DDIM, CFG, 잠재 확산, 목차의 GAN, DiT, 플로 매칭, ControlNet, LoRA, 비디오, 평가)로 시나리오 30개(L01~L30)를 추가했습니다(<code>eval/context_scenarios_lecture.json</code>).</li>
 <li>시나리오와 정답 장면(<code>eval/diffusion/x4_gold.json</code>)은 개발 보조 AI(Claude)가 썼고, <b>생성 전에 커밋해 고정</b>했습니다(<code>d1a4ce0</code>).</li>
-<li>42개 × A/B를 새로 기획했습니다(기획 LLM 비용 약 $0.03). 이때 기획 프롬프트에는 <a href="#glyph">빈 면·50단어 규칙</a>이 들어 있었고 A·B 모두 같습니다.</li></ul>
-<div class="tbl"><table><thead><tr><th>조건</th><th class="num">그림</th><th class="num">비교표</th><th class="num">텍스트·수식</th><th class="num">되묻기</th></tr></thead><tbody>
+<li>42개 × A/B를 새로 기획했습니다(기획 LLM 비용 약 $0.03). 이때 기획 프롬프트에는 <a href="#glyph">빈 면, 50단어 규칙</a>이 들어 있었고 A, B 모두 같습니다.</li></ul>
+<div class="tbl"><table><thead><tr><th>조건</th><th class="num">그림</th><th class="num">비교표</th><th class="num">텍스트, 수식</th><th class="num">되묻기</th></tr></thead><tbody>
 <tr><td>A 요청만</td><td class="num">30</td><td class="num">5</td><td class="num">0</td><td class="num"><b>7</b></td></tr>
 <tr><td>B 요청 + 맥락</td><td class="num">35</td><td class="num">5</td><td class="num">2</td><td class="num"><b>0</b></td></tr>
 </tbody></table></div>
 <div class="tbl"><table><thead><tr><th>지표 (그림이 있는 짝 28개)</th><th class="num">B−A</th><th class="num">95% CI</th><th class="num">B 우세</th><th class="num">p</th></tr></thead><tbody>
 <tr><td><b>그림 ↔ 정답 장면</b></td><td class="num"><b>+2.10</b></td><td class="num">+0.65 ~ +3.61</td><td class="num">17/28</td><td class="num"><b>0.010</b></td></tr>
 <tr><td>그림 묘사(글) ↔ 정답 장면</td><td class="num">+6.41</td><td class="num">+2.98 ~ +10.13</td><td class="num">20/28</td><td class="num">0.002</td></tr>
-<tr><td>그림 · 요청에 지시어 있음(“그 비유”, “이걸”, “방금”)</td><td class="num">+1.81</td><td class="num">+0.22 ~ +3.48</td><td class="num">11/19</td><td class="num">0.048</td></tr>
-<tr><td>그림 · 지시어 없음</td><td class="num">+2.72</td><td class="num">−0.12 ~ +5.72</td><td class="num">6/9</td><td class="num">0.142</td></tr>
+<tr><td>그림, 요청에 지시어 있음(“그 비유”, “이걸”, “방금”)</td><td class="num">+1.81</td><td class="num">+0.22 ~ +3.48</td><td class="num">11/19</td><td class="num">0.048</td></tr>
+<tr><td>그림, 지시어 없음</td><td class="num">+2.72</td><td class="num">−0.12 ~ +5.72</td><td class="num">6/9</td><td class="num">0.142</td></tr>
 </tbody></table></div>
 <div class="chartbox">{x4_chart()}</div>
-<p class="meta">막대에 마우스를 올리면 A·B 점수와 글 단계 차이가 보입니다. 초록은 맥락 쪽이 높은 시나리오, 주황은 낮은 시나리오.</p>
+<p class="meta">막대에 마우스를 올리면 A, B 점수와 글 단계 차이가 보입니다. 초록은 맥락 쪽이 높은 시나리오, 주황은 낮은 시나리오.</p>
 {figure("docs/images/diffusion_x4_n42_examples.jpg", "X4 맥락 없음과 있음 비교 그림", "왼쪽 A(요청만), 오른쪽 B(요청 + 맥락). S09 현대 교실 → 조선 시대 시험장, L06 설경 → 잉크 비유, L24 로봇 → 온도계 비유, L26 회로 → 고양이 사진 분포")}
 <details><summary>시나리오별 원자료 표 보기</summary>{x4_table()}<p class="meta">출처: <code>eval/results/diffusion/x4_context_n42/summary.md</code></p></details>
 <h4>해석</h4>
@@ -805,10 +805,10 @@ def build():
 
 <section class="card" id="glyph">
 <h3>5-9. 가짜 글자 대책: 기획 프롬프트 규칙 <span class="tag no">효과 없음</span></h3>
-<dl class="kv"><dt>질문</dt><dd>기획 LLM에 “종이·화면·간판은 blank/empty/simple icons로 묘사하라, 그림 묘사는 영어 50단어 이내”라고 지시하면 가짜 글자가 줄까?</dd>
+<dl class="kv"><dt>질문</dt><dd>기획 LLM에 “종이, 화면, 간판은 blank/empty/simple icons로 묘사하라, 그림 묘사는 영어 50단어 이내”라고 지시하면 가짜 글자가 줄까?</dd>
 <dt>방법</dt><dd>X4의 S 시나리오 12개에서 규칙 전후의 그림 묘사와 그림(각 34장)을 비교. 가짜 글자는 직접 눈으로 셌습니다.</dd></dl>
 <div class="tbl"><table><thead><tr><th></th><th class="num">규칙 전</th><th class="num">규칙 후</th></tr></thead><tbody>
-<tr><td>그림 묘사에 blank·empty 언급</td><td class="num">2/18</td><td class="num">9/17</td></tr>
+<tr><td>그림 묘사에 blank, empty 언급</td><td class="num">2/18</td><td class="num">9/17</td></tr>
 <tr><td>77토큰 초과</td><td class="num">18/18</td><td class="num"><b>7/17</b></td></tr>
 <tr><td>토큰 수 중앙값</td><td class="num">95</td><td class="num"><b>73</b></td></tr>
 <tr><td>가짜 글자가 보이는 그림</td><td class="num">약 9/34</td><td class="num">약 9/34</td></tr>
@@ -839,14 +839,14 @@ def build():
 <section class="card" id="preview">
 <h3>5-12. 디노이징 과정 보여 주기 <span class="tag ok">구현</span></h3>
 <p>확산 모델이 그림을 만드는 동안 매 스텝 스케줄러가 계산하는 <b>예측된 깨끗한 잠재 x̂₀</b>를 가로채 그림 자리에 보여 줍니다(17강 3쪽 “Estimate clean image”).</p>
-<div class="formula">x̂₀ = ( x<sub>t</sub> − √(1 − ᾱ<sub>t</sub>) · ε̂ ) / √ᾱ<sub>t</sub></div>
+<div class="formula">x̂₀ = ( x<sub>t</sub> − √(1 − ᾱ<sub>t</sub>) ε̂ ) / √ᾱ<sub>t</sub></div>
 <ol class="steps"><li>스케줄러의 <code>step</code>을 감싸 <code>pred_original_sample</code>(x̂₀)을 꺼냅니다.</li>
 <li>4채널 잠재를 고정된 4×3 선형 행렬로 RGB에 근사합니다. 매 스텝 VAE 디코더를 돌리지 않아 거의 공짜입니다(색은 근사).</li>
 <li>96×54를 4배 키운 작은 JPEG를 0.12초 간격 이내로 <code>slide.preview</code> 이벤트로 보냅니다. 청중에게는 그 장을 보여 줄 수 있을 때만 보냅니다.</li>
 <li>완성 그림이 오면 미리보기 위로 서서히 덮습니다.</li></ol>
 {figure("docs/presentation/assets/denoise_strip.jpg", "디노이징 미리보기 4단계", "SD 1.5 DDIM 25스텝으로 과적합 비유 장면(P01, 시드 3)을 그릴 때: 1/25, 3/25, 6/25 스텝의 x̂₀ 미리보기와 완성 그림")}
 <ul class="list"><li><b>확인</b>: SD 1.5 25스텝 + mock 기획, 헤드리스 Chrome. 발표자 화면에 미리보기 23장(2/25~24/25), 청중 화면에 미리보기와 완성 그림, 화면 오류 0건.</li>
-<li><b>발견·수정</b>: SD 1.5 기본 스케줄러(PNDM)는 x̂₀를 주지 않아 잡음만 보였습니다 → SD 1.5 기본을 DDIM으로 바꿨습니다. 미리보기가 완성 그림 위에 그려지던 쌓임 순서 문제도 고쳤습니다.</li>
+<li><b>발견과 수정</b>: SD 1.5 기본 스케줄러(PNDM)는 x̂₀를 주지 않아 잡음만 보였습니다 → SD 1.5 기본을 DDIM으로 바꿨습니다. 미리보기가 완성 그림 위에 그려지던 쌓임 순서 문제도 고쳤습니다.</li>
 <li>SD-Turbo(2스텝, 0.6초)는 너무 빨라 미리보기가 거의 보이지 않습니다. 과정을 보여 주는 시연은 <code>LOCAL_IMAGE_MODEL=sd15</code>(약 12초)로 합니다.</li></ul>
 </section>
 
@@ -854,25 +854,25 @@ def build():
 <div class="stats">
   <div class="stat"><b>25장 + 부록 3장</b><span>영어 발표, 16:9 와이드</span></div>
   <div class="stat"><b>약 10분</b><span>대본 기준 10분, 시연 2분 포함</span></div>
-  <div class="stat"><b>영·한 대본</b><span>슬라이드 노트와 <code>script.md</code>에 같은 내용</span></div>
+  <div class="stat"><b>영어와 한국어 대본</b><span>슬라이드 노트와 <code>script.md</code>에 같은 내용</span></div>
 </div>
-<p><b>구성</b>: 장마다 문장 하나와 그림(또는 숫자) 하나만 둡니다. 10분 발표라 장 수를 25장으로 늘리고, 한 장에 몰려 있던 내용을 나눴습니다. 문제(2~3장) → 해결 장면(4~5장) → 동작(6~8장) → 핵심 아이디어(9~10장) → 형태 고르기(11장) → 시연(12장) → 수업 개념(13장) → 실험 질문 세 개(14~23장) → 한계(24장) → 정리(25장) 순서입니다. 실험은 논문처럼 질문마다 <b>설정(모델·데이터·측정)을 먼저</b> 보이고 결과를 보입니다(15·17·20~21장이 설정). 신뢰구간·검정 세부는 부록(26~28장)에 두었습니다.</p>
-<p><b>디자인</b>: 흰 바탕에 큰 글씨, 강조색은 파랑 하나(#2D66AD)만 쓰고 빨강(#DD5C47)은 문제·한계에만 씁니다. 위쪽 작은 라벨(THE PROBLEM, QUESTION 1 등)로 지금 어디쯤인지 알려 줍니다. 시연과 마지막 장만 파란 바탕입니다. 글꼴은 나눔스퀘어 네오이고, 발표할 컴퓨터에 먼저 설치해야 합니다(<code>docs/presentation/fonts/README.md</code>). PowerPoint에서 바로 고칠 수 있는 편집형 PPTX입니다.</p>
+<p><b>구성</b>: 장마다 문장 하나와 그림(또는 숫자) 하나만 둡니다. 10분 발표라 장 수를 25장으로 늘리고, 한 장에 몰려 있던 내용을 나눴습니다. 문제(2~3장) → 해결 장면(4~5장) → 동작(6~8장) → 핵심 아이디어(9~10장) → 형태 고르기(11장) → 시연(12장) → 수업 개념(13장) → 실험 질문 세 개(14~23장) → 한계(24장) → 정리(25장) 순서입니다. 실험은 논문처럼 질문마다 <b>설정(모델, 데이터, 측정)을 먼저</b> 보이고 결과를 보입니다(15, 17, 20~21장이 설정). 신뢰구간과 검정 세부는 부록(26~28장)에 두었습니다.</p>
+<p><b>디자인</b>: 흰 바탕에 큰 글씨, 강조색은 파랑 하나(#2D66AD)만 쓰고 빨강(#DD5C47)은 문제와 한계에만 씁니다. 템플릿처럼 보이는 장식은 뺐습니다. 대문자 머리표, 원 안의 아이콘, 가운뎃점 구분자, 줄표, 문장 속 화살표를 쓰지 않고, 실험 장에만 ‘Q1 setup’ 같은 작은 표시를 붙였습니다. 실험 설정은 논문의 설정 표처럼 항목과 내용을 줄로 적었습니다. 시연과 마지막 장만 파란 바탕입니다. 글꼴은 나눔스퀘어 네오이고, 발표할 컴퓨터에 먼저 설치해야 합니다(<code>docs/presentation/fonts/README.md</code>). PowerPoint에서 바로 고칠 수 있는 편집형 PPTX입니다.</p>
 <h3 id="deck-flow">6-1. 흐름과 평가 기준</h3>
 <div class="flow">
-  <div class="box"><b>문제·장면</b>1~5장</div><span class="arrow">→</span>
-  <div class="box"><b>동작·아이디어</b>6~11장</div><span class="arrow">→</span>
+  <div class="box"><b>문제와 장면</b>1~5장</div><span class="arrow">→</span>
+  <div class="box"><b>동작과 아이디어</b>6~11장</div><span class="arrow">→</span>
   <div class="box dark"><b>시연</b>12장</div><span class="arrow">→</span>
   <div class="box"><b>수업 개념</b>13장</div><span class="arrow">→</span>
   <div class="box"><b>실험 3개</b>14~23장</div><span class="arrow">→</span>
-  <div class="box"><b>한계·정리</b>24~25장</div>
+  <div class="box"><b>한계와 정리</b>24~25장</div>
 </div>
 <div class="tbl"><table><thead><tr><th>평가 항목 (17강 9~10쪽)</th><th class="num">배점</th><th>PPT에서 다루는 곳</th></tr></thead><tbody>
-<tr><td>창의성·독창성</td><td class="num">30</td><td>9~10장 강의 맥락 아이디어 · 2~5장 유용성 · 20~23장 검증 · 부록 26장 ZeroPrep 비교</td></tr>
-<tr><td>기술 이해</td><td class="num">15~20</td><td>11장 17강과 설계 연결 · 13장 확산·DDIM·x̂₀ · 15~19장 증류·CFG</td></tr>
-<tr><td>구현</td><td class="num">15~20</td><td>4~8장 실제 결과·동작·발표자 화면 · 12장 실시간 시연 · 부록 27장 수치</td></tr>
-<tr><td>실험·분석</td><td class="num">20~25</td><td>14~23장 실험 질문 3개(X3·X2·X4, 질문마다 설정 → 결과) · 24장 한계 · 부록 28장 측정 방법</td></tr>
-<tr><td>발표·질의응답</td><td class="num">10~15</td><td>대본, 예상 질문 8개(아래 6-4)</td></tr>
+<tr><td>창의성과 독창성</td><td class="num">30</td><td>9~10장 강의 맥락 아이디어, 2~5장 유용성, 20~23장 검증, 부록 26장 ZeroPrep 비교</td></tr>
+<tr><td>기술 이해</td><td class="num">15~20</td><td>11장 17강과 설계 연결, 13장 확산, DDIM, x̂₀, 15~19장 증류, CFG</td></tr>
+<tr><td>구현</td><td class="num">15~20</td><td>4~8장 실제 결과, 동작, 발표자 화면, 12장 실시간 시연, 부록 27장 수치</td></tr>
+<tr><td>실험과 분석</td><td class="num">20~25</td><td>14~23장 실험 질문 3개(X3, X2, X4, 질문마다 설정 → 결과), 24장 한계, 부록 28장 측정 방법</td></tr>
+<tr><td>발표와 질의응답</td><td class="num">10~15</td><td>대본, 예상 질문 8개(아래 6-4)</td></tr>
 </tbody></table></div>
 <p class="meta">같은 쪽 안에서 막대와 표의 배점이 달라 범위로 적었습니다(<code>docs/evaluation-criteria-analysis.md</code>).</p>
 
@@ -900,9 +900,9 @@ def build():
 <h2 id="limits">7. 한계와 남은 일</h2>
 <ul class="list">
 <li><b>사람 평가가 없습니다.</b> 모든 품질 판단은 CLIP과 개발자의 눈 확인입니다. X1에서 CLIP이 깨진 그림을 놓쳤으므로 블라인드 사람 평가(장면 적합성, 깨짐, 가짜 글자)가 가장 중요한 남은 일입니다.</li>
-<li><b>평가 자료를 같은 쪽이 썼습니다.</b> 감지 평가 사례, X4 시나리오와 정답 장면 모두 개발 쪽(개발자·개발 보조 AI)이 작성했습니다. X4는 생성 전에 커밋해 고정했지만 작성 편향은 남습니다.</li>
-<li><b>지연은 n=1입니다.</b> 반복 측정(n≥10, 중앙값·p90)이 필요합니다.</li>
-<li><b>가짜 글자</b>: SD-Turbo는 종이·간판 장면에서 의미 없는 글자를 그립니다. 프롬프트 대책은 효과가 없었습니다.</li>
+<li><b>평가 자료를 같은 쪽이 썼습니다.</b> 감지 평가 사례, X4 시나리오와 정답 장면 모두 개발 쪽(개발자, 개발 보조 AI)이 작성했습니다. X4는 생성 전에 커밋해 고정했지만 작성 편향은 남습니다.</li>
+<li><b>지연은 n=1입니다.</b> 반복 측정(n≥10, 중앙값, p90)이 필요합니다.</li>
+<li><b>가짜 글자</b>: SD-Turbo는 종이, 간판 장면에서 의미 없는 글자를 그립니다. 프롬프트 대책은 효과가 없었습니다.</li>
 <li><b>한국어 전용</b>: 영어 강의에는 STT 언어 변경과 영어 요청 표현 추가가 필요합니다.</li>
 <li><b>감지기는 규칙 기반</b>이라 “다음 장” 같은 말이 들어간 일반 문장을 입력 보완으로 띄우는 경우가 있습니다.</li>
 <li><b>시간 측정 환경</b>: 이 Mac 한 대, 메모리 압박(스왑)이 있는 상태입니다.</li>
@@ -940,14 +940,14 @@ backend/.venv/bin/python eval/check_providers.py --stt | --text | --image
 backend/.venv/bin/python eval/latency_probe.py -n 10
 
 # 발표 자료 다시 만들기
-NODE_PATH=&lt;pptxgenjs·react-icons·sharp가 설치된 node_modules&gt; node docs/presentation/build_deck.js
+NODE_PATH=&lt;pptxgenjs가 설치된 node_modules&gt; node docs/presentation/build_deck.js
 python3 docs/presentation/build_guide.py</code></pre>
 
 <h2 id="files">9. 파일 지도</h2>
 <div class="tbl"><table><thead><tr><th>위치</th><th>내용</th></tr></thead><tbody>
-<tr><td><code>docs/presentation/NextSlide_final.pptx</code></td><td>발표 PPT (영어 본문 25장 + 부록 3장, 노트에 영·한 대본)</td></tr>
+<tr><td><code>docs/presentation/NextSlide_final.pptx</code></td><td>발표 PPT (영어 본문 25장 + 부록 3장, 노트에 영, 한 대본)</td></tr>
 <tr><td><code>docs/presentation/script.md</code></td><td>발표 대본, 시연 대본, 예상 질문</td></tr>
-<tr><td><code>docs/presentation/build_deck.js</code> · <code>build_guide.py</code></td><td>PPT·대본 생성 스크립트, 이 해설서 생성 스크립트</td></tr>
+<tr><td><code>docs/presentation/build_deck.js</code>, <code>build_guide.py</code></td><td>PPT와 대본 생성 스크립트, 이 해설서 생성 스크립트</td></tr>
 <tr><td><code>docs/presentation/fonts/README.md</code></td><td>덱 글꼴(나눔스퀘어 네오) 설치 안내</td></tr>
 <tr><td><code>docs/diffusion-experiments.md</code></td><td>확산 실험 X1~X5, X4 상세 기록</td></tr>
 <tr><td><code>docs/results.md</code></td><td>테스트, 실제 API 점검, 감지 평가, 미검증 항목</td></tr>
@@ -969,7 +969,7 @@ python3 docs/presentation/build_guide.py</code></pre>
 <li><a href="#method">3. 실험 공통 원칙</a><ol><li><a href="#metrics">지표</a></li><li><a href="#glossary">용어 풀이</a></li></ol></li>
 <li><a href="#overview">4. 실험 한눈에</a></li>
 <li><a href="#details">5. 실험별 상세</a><ol>
-<li><a href="#detect">감지 정확도</a></li><li><a href="#api">실제 API 점검</a></li><li><a href="#speed">속도 기준선</a></li><li><a href="#x1">X1 샘플러·스텝</a></li><li><a href="#x2">X2 CFG</a></li><li><a href="#x3">X3 증류 모델</a></li><li><a href="#x5">X5 가짜 글자</a></li><li><a href="#x4">X4 강의 맥락</a></li><li><a href="#glyph">글자 규칙</a></li><li><a href="#tok77">77토큰 버그</a></li><li><a href="#e2e">실제 서버 E2E</a></li><li><a href="#preview">디노이징 미리보기</a></li></ol></li>
+<li><a href="#detect">감지 정확도</a></li><li><a href="#api">실제 API 점검</a></li><li><a href="#speed">속도 기준선</a></li><li><a href="#x1">X1 샘플러, 스텝</a></li><li><a href="#x2">X2 CFG</a></li><li><a href="#x3">X3 증류 모델</a></li><li><a href="#x5">X5 가짜 글자</a></li><li><a href="#x4">X4 강의 맥락</a></li><li><a href="#glyph">글자 규칙</a></li><li><a href="#tok77">77토큰 버그</a></li><li><a href="#e2e">실제 서버 E2E</a></li><li><a href="#preview">디노이징 미리보기</a></li></ol></li>
 <li><a href="#deck">6. 발표 PPT 해설</a><ol><li><a href="#deck-flow">흐름과 평가 기준</a></li><li><a href="#deck-slides">슬라이드별 설명</a></li><li><a href="#deck-demo">시연 계획</a></li><li><a href="#deck-qa">예상 질문</a></li></ol></li>
 <li><a href="#limits">7. 한계와 남은 일</a></li>
 <li><a href="#repro">8. 재현 방법</a></li>
